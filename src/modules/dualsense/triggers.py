@@ -76,7 +76,7 @@ class TriggerAnimation:
                 s.brake_baseline_force,
                 s.brake_max_force,
                 s.brake_curve,
-                s.pedal_full_force_at,
+                s.brake_full_force_at,
                 s.pedal_value_max,
             )
         if s.enable_handbrake_bonus and t.get("handbrake", 0):
@@ -123,7 +123,7 @@ class TriggerAnimation:
             s.throttle_baseline_force,
             s.throttle_max_force,
             s.throttle_curve,
-            s.pedal_full_force_at,
+            s.throttle_full_force_at,
             s.pedal_value_max,
         ))
 

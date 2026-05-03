@@ -13,8 +13,9 @@ log = logging.getLogger("fh5ds.dualsense")
 VENDOR_ID = 0x054C
 PRODUCT_IDS = (0x0CE6, 0x0DF2)  # DualSense, DualSense Edge
 
-# valid_flag0: triggers only (bits 2,3). Rumble (bits 0,1) untouched so Steam keeps it.
-TRIG_FLAGS = 0x04 | 0x08
+# valid_flag0: 0x01 (R motor), 0x02 (L motor), 0x04 (R trigger), 0x08 (L trigger).
+# Some firmware needs motor bits set for trigger bits to be processed.
+TRIG_FLAGS = 0x01 | 0x02 | 0x04 | 0x08
 
 USB = {"rid": 0x02, "flags": 1, "r": 11, "l": 22, "size": 64, "bt": False}
 BT  = {"rid": 0x31, "flags": 2, "r": 12, "l": 23, "size": 78, "bt": True}
@@ -23,11 +24,19 @@ BT  = {"rid": 0x31, "flags": 2, "r": 12, "l": 23, "size": 78, "bt": True}
 def _find_gamepad():
     """Pick the Game Pad HID interface (usage_page=1, usage=5).
     Audio/sensor interfaces share VID/PID and silently drop trigger writes."""
-    for d in hid.enumerate(VENDOR_ID, 0):
+    devices = hid.enumerate(VENDOR_ID, 0)
+    for d in devices:
         if (d.get("product_id") in PRODUCT_IDS
                 and d.get("usage_page", 1) == 1
                 and d.get("usage", 5) == 5):
             return d
+    
+    # Fallback: if usage info is missing (some systems/drivers), pick first matching VID/PID
+    for d in devices:
+        if d.get("product_id") in PRODUCT_IDS:
+            log.warning("Usage page/usage not found, picking first matching VID/PID: %s", d.get("path"))
+            return d
+
     raise RuntimeError(
         "DualSense gamepad interface not found. "
         "If Steam Input + HidHide is on, allowlist python.exe."

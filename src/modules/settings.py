@@ -16,19 +16,20 @@ class Settings:
     udp_timeout: float = 0.5
 
     # --- Input deadzones (Forza Data Out pedal bytes 0-255) ---
-    accel_deadzone: int = 10
-    brake_deadzone: int = 10
+    accel_deadzone: int = 50
+    brake_deadzone: int = 50
     pedal_value_max: int = 255
-    pedal_full_force_at: int = 248  # ~98%; jumps straight to force 255
+    brake_full_force_at: int = 248  # ~98%; jumps straight to force 255
+    throttle_full_force_at: int = 255  # %100; jumps straight to force 255
 
     # --- Brake (left trigger): exponential ramp baseline -> full press ---
     # Baseline is ALWAYS held (no off()) so the trigger never "machine-guns"
     # by toggling rigid<->off around the deadzone.
     # Normal ramp max stays below 255; above 98% brake uses force 255.
     enable_brake_resistance: bool = True
-    brake_baseline_force: int = 1  # constant weight when not pressed
-    brake_max_force: int = 25      # normal ramp max below 100% input
-    brake_curve: float = 2.5        # >1 = soft early, sharp at the end
+    brake_baseline_force: int = 0  # constant weight when not pressed
+    brake_max_force: int = 5      # normal ramp max below 100% input
+    brake_curve: float = 4.1        # >1 = soft early, sharp at the end
     enable_handbrake_bonus: bool = True
     handbrake_bonus: int = 25       # extra rigid when handbrake engaged
 
@@ -39,7 +40,7 @@ class Settings:
     abs_slip_ratio_threshold: float = 1.0
     abs_combined_slip_threshold: float = 1.0
     abs_freq: int = 35
-    abs_amp: int = 255
+    abs_amp: int = 10  # MARK: 10 was too weak for the trigger motor to be felt
 
     # --- Throttle (right trigger): exponential ramp baseline -> full press ---
     # Kept softer than the brake — a real gas pedal has very little resistance
@@ -47,15 +48,15 @@ class Settings:
     # gear-shift / rev-limit vibration animations.
     # Above 98% throttle uses force 255 inside the same ramp logic.
     enable_throttle_resistance: bool = True
-    throttle_baseline_force: int = 1
-    throttle_max_force: int = 10    # softer than brake on purpose
-    throttle_curve: float = 5.2     # steeper = even softer at light press
+    throttle_baseline_force: int = 0
+    throttle_max_force: int = 3    # softer than brake on purpose
+    throttle_curve: float = 10.5     # steeper = even softer at light press
 
     # --- Rev limiter buzz (right trigger) ---
     enable_rev_limiter: bool = True
-    rev_limit_ratio: float = 0.95   # rpm / max_rpm above this = limiter
+    rev_limit_ratio: float = 0.92   # MARK: lowered to 0.92 so it kicks in slightly before hard cutoff
     rev_limit_freq: int = 30
-    rev_limit_amp: int = 255
+    rev_limit_amp: int = 10        # MARK: 10 was too weak to move the motor
 
     # --- Gear shift thump (right trigger, single vibration burst) ---
     enable_gear_shift: bool = True
