@@ -3,7 +3,7 @@ import logging
 import sys
 import time
 
-from modules import dualsense, udplistener
+from modules import dualsense, udplistener, setup_logging
 from modules.settings import Settings
 
 log = logging.getLogger("fh5ds")
@@ -38,15 +38,16 @@ def _loop(ds, listener, s):
 
         if pkt is None:
             idle = now - last_pkt
-            if pkt_count == 0 and idle > 3.0:
+            if idle > 5.0 and not getattr(listener, "lost", False):
                 log.warning("No UDP packets yet — check FH5 Data Out IP/port and Windows Firewall")
-                last_pkt = now
-            elif idle > 1.0 and prev != (OFF, OFF):
+                listener.lost = True
+            if idle > 1.0 and prev != (OFF, OFF):
                 ds.set(OFF, OFF); prev = (OFF, OFF)
             continue
 
         pkt_count += 1
         last_pkt = now
+        listener.lost = False
         if pkt_count == 1:
             log.info("First packet from %s:%d (%d bytes)", addr[0], addr[1], len(pkt))
 
@@ -85,11 +86,8 @@ if __name__ == "__main__":
     if args.host is not None: settings.udp_host = args.host
     if args.port is not None: settings.udp_port = args.port
 
-    logging.basicConfig(
-        level=logging.DEBUG if args.debug else logging.INFO,
-        format="%(asctime)s %(message)s",
-        force=True,
-    )
+    setup_logging(args.debug)
+    
     log.debug("Debug logging enabled")
     try:
         run(settings)

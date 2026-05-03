@@ -11,7 +11,7 @@ from dataclasses import dataclass
 @dataclass
 class Settings:
     # --- UDP ---
-    udp_host: str = "0.0.0.0"
+    udp_host: str = "127.0.0.1"
     udp_port: int = 5300
     udp_timeout: float = 0.5
 

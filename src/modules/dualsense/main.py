@@ -104,15 +104,20 @@ class DualSense:
         # writes. We sleep tiny amounts when there's nothing to do.
         while self._running:
             try:
-                self.dev.read(self.lay["size"])  # returns immediately (nonblocking)
+                try:
+                    self.dev.read(self.lay["size"])  # returns immediately (nonblocking)
+                except OSError:
+                    pass  # BT read can fail randomly on Windows
+                
                 with self._lock:
                     if not self._dirty:
                         time.sleep(0.001)
                         continue
                     left, right, self._dirty = self._left, self._right, False
+                
                 self.dev.write(self._build(left, right))
             except Exception:
-                log.exception("HID I/O failed; stopping trigger thread")
+                log.exception("HID write failed; stopping trigger thread")
                 self._running = False
                 break
 
