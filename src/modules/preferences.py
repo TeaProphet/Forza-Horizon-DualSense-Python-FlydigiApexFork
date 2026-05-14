@@ -1,21 +1,28 @@
 """Persist Settings to a JSON file next to main.py.
 
-Saves every simple-typed field (bool/int/float/str). Container fields like
-tuples are skipped — those still live in settings.py.
+Saves simple-typed fields (bool/int/float/str). On version change the file
+is wiped so defaults from settings.py apply.
 """
 import json
 import logging
+import re
 from pathlib import Path
 
 log = logging.getLogger("fh5ds")
 
 PATH = Path(__file__).resolve().parent.parent / "user_preferences.json"
+PYPROJECT = Path(__file__).resolve().parent.parent / "pyproject.toml"
 
 _SIMPLE = (bool, int, float, str)
 
 
-def _keys(s) -> list[str]:
-    return [k for k, v in vars(s).items() if isinstance(v, _SIMPLE)]
+def _version() -> str:
+    m = re.search(r'(?m)^\s*version\s*=\s*"([^"]+)"', PYPROJECT.read_text(encoding="utf-8"))
+    return m.group(1) if m else ""
+
+
+def _fields(s) -> dict:
+    return {k: v for k, v in vars(s).items() if isinstance(v, _SIMPLE)}
 
 
 def load(s) -> None:
@@ -24,29 +31,23 @@ def load(s) -> None:
     try:
         data = json.loads(PATH.read_text(encoding="utf-8"))
     except Exception as e:
-        log.warning("Could not load preferences (%s): %s", PATH.name, e)
+        log.warning("Could not load preferences: %s", e)
         return
-    keys = set(_keys(s))
-    for k, v in data.items():
-        if k not in keys:
-            continue
-        current = getattr(s, k)
-        try:
-            if isinstance(current, bool):
-                setattr(s, k, bool(v))
-            elif isinstance(current, int):
-                setattr(s, k, int(v))
-            elif isinstance(current, float):
-                setattr(s, k, float(v))
-            else:
-                setattr(s, k, v)
-        except (TypeError, ValueError):
-            log.warning("Bad preference value for %s: %r", k, v)
+    if data.get("version") != _version():
+        log.info("Resetting preferences: version changed.")
+        PATH.unlink(missing_ok=True)
+        return
+    for k, current in _fields(s).items():
+        if k in data:
+            try:
+                setattr(s, k, type(current)(data[k]))
+            except (TypeError, ValueError):
+                pass
 
 
 def save(s) -> None:
-    data = {k: getattr(s, k) for k in _keys(s)}
+    data = _fields(s) | {"version": _version()}
     try:
         PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
     except Exception as e:
-        log.warning("Could not save preferences (%s): %s", PATH.name, e)
+        log.warning("Could not save preferences: %s", e)
