@@ -33,6 +33,7 @@ def run(s: Settings) -> None:
     ds = dualsense.DualSense(
         startup_pulse_force=s.startup_pulse_force,
         enable_startup_pulse=s.enable_startup_pulse,
+        reconnect_interval_s=s.reconnect_interval_s,
     )
     ds.open()
     try:

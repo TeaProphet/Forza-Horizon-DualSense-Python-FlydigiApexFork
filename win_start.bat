@@ -1,0 +1,113 @@
+@echo off
+REM FH5 DualSense — Windows stub launcher.
+REM Downloads the latest GitHub release into ./app and runs it.
+REM Asks before updating to a newer version.
+
+setlocal enabledelayedexpansion
+set "REPO=HamzaYslmn/Forza-Horizon-DualSense-Python"
+set "ROOT=%~dp0"
+set "APP=%ROOT%app"
+set "VERSION_FILE=%APP%\.version"
+
+REM --- Resolve latest release tag ---
+echo Checking latest release...
+for /f "usebackq delims=" %%v in (`powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "try { (Invoke-RestMethod -UseBasicParsing -Uri 'https://api.github.com/repos/%REPO%/releases/latest' -Headers @{ 'User-Agent'='fh5ds-launcher' }).tag_name } catch { '' }"`) do set "LATEST=%%v"
+
+set "SOURCE=release"
+if "!LATEST!"=="" (
+    echo No release found. Falling back to latest 'main' branch.
+    set "LATEST=main"
+    set "SOURCE=branch"
+)
+
+set "CURRENT="
+if exist "%VERSION_FILE%" (
+    for /f "usebackq delims=" %%c in ("%VERSION_FILE%") do set "CURRENT=%%c"
+)
+
+if "!CURRENT!"=="!LATEST!" if "!SOURCE!"=="release" (
+    echo Up to date ^(!CURRENT!^).
+    goto :run
+)
+
+if "!CURRENT!"=="" (
+    echo Installing !LATEST!...
+    goto :install
+)
+
+if "!SOURCE!"=="branch" (
+    echo Refreshing 'main' branch ^(installed: !CURRENT!^)...
+    goto :install
+)
+
+echo Update available: !CURRENT! -^> !LATEST!
+set /p "ans=Update now? [Y/n]: "
+if /I "!ans!"=="n" goto :run
+
+:install
+set "ZIP=%ROOT%fh5ds-!LATEST!.zip"
+set "TMP=%ROOT%_extract"
+if "!SOURCE!"=="branch" (
+    set "DLURL=https://github.com/%REPO%/archive/refs/heads/!LATEST!.zip"
+) else (
+    set "DLURL=https://github.com/%REPO%/archive/refs/tags/!LATEST!.zip"
+)
+echo Downloading !LATEST!...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -UseBasicParsing -Uri '!DLURL!' -OutFile '%ZIP%'"
+if errorlevel 1 (
+    echo Download failed.
+    if not exist "%APP%\src\main.py" (pause & exit /b 1)
+    goto :run
+)
+
+if exist "%TMP%" rmdir /s /q "%TMP%"
+echo Extracting...
+powershell -NoProfile -ExecutionPolicy Bypass -Command ^
+    "Expand-Archive -LiteralPath '%ZIP%' -DestinationPath '%TMP%' -Force"
+
+REM Move extracted top-level folder to ./app
+if exist "%APP%" rmdir /s /q "%APP%"
+for /d %%d in ("%TMP%\*") do (
+    move "%%d" "%APP%" >nul
+    goto :moved
+)
+:moved
+rmdir /s /q "%TMP%"
+del "%ZIP%"
+> "%VERSION_FILE%" echo !LATEST!
+echo Installed !LATEST!.
+
+:run
+REM --- Ensure uv is available ---
+where uv >nul 2>nul
+if errorlevel 1 (
+    echo uv was not found.
+    set /p "uvans=Install uv from https://astral.sh/uv/ now? [Y/n]: "
+    if /I "!uvans!"=="n" (
+        python -m pip install --user uv
+    ) else (
+        powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"
+    )
+    where uv >nul 2>nul
+    if errorlevel 1 (
+        echo uv installed but not on PATH. Restart your terminal.
+        pause
+        exit /b 1
+    )
+)
+
+REM --- Launch ---
+cd /d "%APP%\src"
+if "%~1"=="" (
+    uv run main.py
+) else (
+    uv run main.py %*
+)
+set "EXITCODE=%ERRORLEVEL%"
+echo.
+echo App exited with code %EXITCODE%.
+echo Press Enter to close this window...
+pause >nul
+endlocal

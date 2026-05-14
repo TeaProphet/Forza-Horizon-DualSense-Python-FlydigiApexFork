@@ -1,7 +1,7 @@
-"""Persist enable_* toggle states across runs as a tiny JSON file next to main.py.
+"""Persist Settings to a JSON file next to main.py.
 
-Other tunables (forces, curves, deadzones) still live in settings.py — only the
-on/off switches are remembered, since those are the things the TUI changes.
+Saves every simple-typed field (bool/int/float/str). Container fields like
+tuples are skipped — those still live in settings.py.
 """
 import json
 import logging
@@ -11,9 +11,11 @@ log = logging.getLogger("fh5ds")
 
 PATH = Path(__file__).resolve().parent.parent / "user_preferences.json"
 
+_SIMPLE = (bool, int, float, str)
 
-def _toggle_attrs(s) -> list[str]:
-    return [k for k in vars(s) if k.startswith("enable_")]
+
+def _keys(s) -> list[str]:
+    return [k for k, v in vars(s).items() if isinstance(v, _SIMPLE)]
 
 
 def load(s) -> None:
@@ -24,13 +26,26 @@ def load(s) -> None:
     except Exception as e:
         log.warning("Could not load preferences (%s): %s", PATH.name, e)
         return
+    keys = set(_keys(s))
     for k, v in data.items():
-        if k in _toggle_attrs(s):
-            setattr(s, k, v)
+        if k not in keys:
+            continue
+        current = getattr(s, k)
+        try:
+            if isinstance(current, bool):
+                setattr(s, k, bool(v))
+            elif isinstance(current, int):
+                setattr(s, k, int(v))
+            elif isinstance(current, float):
+                setattr(s, k, float(v))
+            else:
+                setattr(s, k, v)
+        except (TypeError, ValueError):
+            log.warning("Bad preference value for %s: %r", k, v)
 
 
 def save(s) -> None:
-    data = {k: getattr(s, k) for k in _toggle_attrs(s)}
+    data = {k: getattr(s, k) for k in _keys(s)}
     try:
         PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
     except Exception as e:

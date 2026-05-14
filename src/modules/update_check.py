@@ -1,33 +1,44 @@
-"""Show how long ago the latest GitHub commit was, so users know if they're behind."""
+"""Check the latest GitHub release and warn if the local install is behind."""
 import json
 import logging
 import threading
 import urllib.request
-from datetime import datetime, timezone
+from pathlib import Path
 
 log = logging.getLogger("fh5ds")
 
-API_URL = "https://api.github.com/repos/HamzaYslmn/Forza-Horizon-DualSense-Python/commits/main"
-REPO_URL = "https://github.com/HamzaYslmn/Forza-Horizon-DualSense-Python"
-def _format_age(seconds: float) -> str:
-    if seconds < 3600:
-        return f"{int(seconds // 60)} min"
-    if seconds < 86400:
-        return f"{seconds / 3600:.1f} h"
-    return f"{seconds / 86400:.1f} d"
+REPO = "HamzaYslmn/Forza-Horizon-DualSense-Python"
+API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
+REPO_URL = f"https://github.com/{REPO}"
+# Written by win_start.bat / linux_start.sh next to the app/ folder.
+VERSION_FILE = Path(__file__).resolve().parents[2].parent / ".version"
+
+
+def _local_version() -> str | None:
+    try:
+        return VERSION_FILE.read_text(encoding="utf-8").strip() or None
+    except OSError:
+        return None
 
 
 def _check(timeout: float) -> None:
     try:
-        with urllib.request.urlopen(API_URL, timeout=timeout) as r:
-            data = json.loads(r.read().decode())
-        date_str = data["commit"]["author"]["date"]  # e.g. 2026-04-30T12:34:56Z
-        commit_time = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-        age_s = (datetime.now(timezone.utc) - commit_time).total_seconds()
-        sha = data["sha"][:7]
-        log.info("Latest commit %s, %s ago - %s", sha, _format_age(age_s), REPO_URL)
+        req = urllib.request.Request(API_URL, headers={"User-Agent": "fh5ds"})
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            latest = json.loads(r.read().decode()).get("tag_name")
     except Exception as e:
-        log.warning("Update check failed: %s", e)
+        log.debug("Update check failed: %s", e)
+        return
+    if not latest:
+        return
+    current = _local_version()
+    if current and current != latest:
+        log.warning(
+            "New release %s available (you have %s). Relaunch via win_start.bat / linux_start.sh to update. %s/releases/latest",
+            latest, current, REPO_URL,
+        )
+    elif not current:
+        log.info("Latest release: %s - %s/releases/latest", latest, REPO_URL)
 
 
 def log_latest_commit_age(timeout: float = 3.0) -> None:

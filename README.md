@@ -88,25 +88,21 @@ The chain lives in [TriggerAnimation._throttle()](src/modules/dualsense/triggers
 
 ## 🛠️ Installation
 
-**Requirements:** Windows, Python 3.10+, and a DualSense controller (USB or Bluetooth).
+**Requirements:** Windows 10/11 or Linux, Python 3.10+, and a DualSense controller (USB or Bluetooth).
 
-### Option 1: Start with `start.bat`
+### Option 1: Click-and-run launcher
 
-Download or clone the project, then double-click `start.bat` in the project folder:
+Download `win_start.bat` (Windows) or `linux_start.sh` (Linux/macOS) from the [latest GitHub release](https://github.com/HamzaYslmn/Forza-Horizon-DualSense-Python/releases/latest), drop it into an empty folder, and double-click it.
 
-```text
-start.bat
-```
+The launcher does everything for you:
 
-The launcher does the setup work for you:
+- On first run it downloads the latest release into `./app/` next to the script.
+  If no release has been published yet, it falls back to the `main` branch.
+- On later runs it asks before updating to a newer release.
+- It installs `uv` if missing, then starts the app.
+- When the app exits, the window stays open ("Press Enter to close...") so any error message stays on screen.
 
-- It checks whether `uv` is installed.
-- If `uv` is missing, it asks before downloading/installing it.
-- Press `Y` or Enter to install `uv` with the official Astral installer.
-- Press `n` to install `uv` with `python -m pip install uv` instead.
-- After `uv` is available, it enters the `src` folder and runs `uv run main.py`.
-
-Use this option if you just want to launch the app on Windows.
+Use this option if you just want to launch the app on Windows or Linux.
 
 ### Option 2: Manual installation
 
@@ -135,6 +131,39 @@ Then install/sync the Python environment from the `src` folder:
 cd src
 uv sync
 ```
+
+### Linux
+
+Works under both **native Linux** (FH5 via Proton on Steam) and a Linux box receiving telemetry over the network.
+
+1. Install the system dependency for `hidapi`:
+
+   ```bash
+   # Debian / Ubuntu
+   sudo apt install libhidapi-hidraw0
+
+   # Arch
+   sudo pacman -S hidapi
+
+   # Fedora
+   sudo dnf install hidapi
+   ```
+2. Install the udev rule so non-root users can talk to the controller:
+
+   ```bash
+   sudo cp packaging/linux/70-dualsense.rules /etc/udev/rules.d/
+   sudo udevadm control --reload-rules
+   sudo udevadm trigger
+   ```
+   Then unplug/replug (USB) or re-pair (Bluetooth) the controller once.
+3. Launch:
+
+   ```bash
+   chmod +x linux_start.sh
+   ./linux_start.sh
+   ```
+
+   `linux_start.sh` downloads/updates the latest release into `./app/`, installs `uv` if needed, then runs the app.
 
 ---
 
@@ -165,7 +194,7 @@ cd src
 uv run main.py
 ```
 
-Or just double-click the `start.bat` file. 
+Or just double-click the `win_start.bat` file. 
 
 You should hear a brief startup pulse on both triggers — that confirms HID writes are landing on the controller. After that, fire up FH5 and start driving.
 

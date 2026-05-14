@@ -67,6 +67,8 @@ class Settings:
     # --- Misc ---
     enable_startup_pulse: bool = True
     startup_pulse_force: int = 150
+    # Retry interval when the controller is missing or disconnects.
+    reconnect_interval_s: float = 10.0
 
     # --- Auto-exit when FH5 closes (cross-platform: Windows + Linux/Proton) ---
     exit_on_game_close: bool = True
