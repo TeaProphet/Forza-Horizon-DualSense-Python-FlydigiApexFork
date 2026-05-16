@@ -1,34 +1,29 @@
 #!/usr/bin/env bash
-# FH5 DualSense — Linux/macOS stub launcher. Downloads the latest release into ./app and runs it.
+# FH5 DualSense — Linux/macOS launcher. Downloads the latest release into ./app and runs it.
 set -e
 
-GAME_ARGC=$#
-trap '_c=$?; echo; echo "App exited with code $_c."; [ "$GAME_ARGC" -eq 0 ] && read -r -p "Press Enter to close this window..." _ || true; exit "$_c"' EXIT
-
-REPO="HamzaYslmn/Forza-Horizon-DualSense-Python"
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+REPO="HamzaYslmn/Forza-Horizon-DualSense-Python"
+RELEASES="https://github.com/$REPO/releases/latest"
 APP="$ROOT/app"
 PYPROJECT="$APP/src/pyproject.toml"
 
-need() { command -v "$1" >/dev/null 2>&1; }
-fetch() {
-    if need curl; then curl -fsSL "$1"
-    elif need wget; then wget -qO- "$1"
-    fi
-}
+trap 'c=$?; echo; echo "App exited with code $c."; [ $# -eq 0 ] && read -r -p "Press Enter to close this window..." _ || true; exit $c' EXIT
 
-# --- Resolve latest release tag ---
+need() { command -v "$1" >/dev/null 2>&1; }
+fetch() { if need curl; then curl -fsSL "$1"; elif need wget; then wget -qO- "$1"; fi; }
+
+# --- Resolve latest release tag (fall back to 'main' branch) ---
 LATEST=$(fetch "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
     | grep -E '"tag_name"' | head -n1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')
-
-SOURCE="release"
+SOURCE="tags"
 if [ -z "$LATEST" ]; then
-    echo "No release found. Falling back to 'main' branch."
+    echo "No release found. Using 'main' branch."
     LATEST="main"
-    SOURCE="branch"
+    SOURCE="heads"
 fi
 
-# --- Read installed version from pyproject.toml ---
+# --- Read currently-installed version from pyproject.toml ---
 CURRENT=""
 if [ -f "$PYPROJECT" ]; then
     v=$(grep -E '^version\s*=' "$PYPROJECT" | head -n1 | sed -E 's/version\s*=\s*"([^"]+)".*/\1/')
@@ -37,19 +32,20 @@ fi
 
 install_release() {
     local tag="$1" kind="$2"
-    local zip="$ROOT/fh5ds.zip" extract="$ROOT/_extract" url
-    if [ "$kind" = "branch" ]; then
-        url="https://github.com/$REPO/archive/refs/heads/$tag.zip"
-    else
-        url="https://github.com/$REPO/archive/refs/tags/$tag.zip"
-    fi
+    local zip="$ROOT/fh5ds.zip" extract="$ROOT/_extract"
     echo "Downloading $tag..."
-    fetch "$url" > "$zip"
+    if ! fetch "https://github.com/$REPO/archive/refs/$kind/$tag.zip" > "$zip"; then
+        echo
+        echo "Download failed. Download the latest release manually from:"
+        echo "   $RELEASES"
+        echo "and extract its contents into the 'app' folder next to this script."
+        echo
+        rm -f "$zip"
+        return 1
+    fi
     rm -rf "$extract"; mkdir -p "$extract"
-    if need unzip; then
-        unzip -q "$zip" -d "$extract"
-    else
-        python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$zip" "$extract"
+    if need unzip; then unzip -q "$zip" -d "$extract"
+    else python3 -c "import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$zip" "$extract"
     fi
     rm -rf "$APP"
     mv "$extract"/*/ "$APP"
@@ -57,31 +53,31 @@ install_release() {
     echo "Installed $tag."
 }
 
-if [ -z "$CURRENT" ]; then
-    echo "Installing $LATEST..."
-    install_release "$LATEST" "$SOURCE"
-elif [ "$SOURCE" = "branch" ]; then
+try_install() { install_release "$1" "$2" || [ -f "$APP/src/main.py" ] || exit 1; }
+
+if [ "$SOURCE" = "heads" ]; then
     echo "Refreshing 'main' branch (installed: $CURRENT)..."
-    install_release "$LATEST" "$SOURCE"
-elif [ "$CURRENT" != "$LATEST" ]; then
+    try_install "$LATEST" "$SOURCE"
+elif [ -z "$CURRENT" ]; then
+    echo "Installing $LATEST..."
+    try_install "$LATEST" "$SOURCE"
+elif [ "$CURRENT" = "$LATEST" ]; then
+    echo "Up to date ($CURRENT)."
+else
     echo "Update available: $CURRENT -> $LATEST"
+    echo "If the automatic update doesn't work, download manually start script from:"
+    echo "   $RELEASES"
     read -r -p "Update now? [Y/n] " ans
     case "${ans:-Y}" in
         [Nn]*) ;;
-        *) install_release "$LATEST" "$SOURCE" ;;
+        *) try_install "$LATEST" "$SOURCE" ;;
     esac
-else
-    echo "Up to date ($CURRENT)."
 fi
 
-# --- Ensure uv is available ---
 if ! need uv; then
     echo "uv was not found. Installing from https://astral.sh/uv/ ..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
-    if ! need uv; then
-        echo "uv installed but not on PATH. Restart your shell or add ~/.local/bin to PATH."
-        exit 1
-    fi
+    need uv || { echo "uv installed but not on PATH. Restart your shell or add ~/.local/bin to PATH."; exit 1; }
 fi
 
 cd "$APP/src"

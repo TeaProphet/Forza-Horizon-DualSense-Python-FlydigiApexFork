@@ -1,30 +1,26 @@
 @echo off
-REM FH5 DualSense — Windows stub launcher. Downloads the latest release into ./app and runs it.
-
-set "IS_ADMIN=0"
-net session >nul 2>&1
-if not errorlevel 1 set "IS_ADMIN=1"
-if "%IS_ADMIN%"=="1" (echo Running as administrator.) else (echo Running as standard user.)
+REM FH5 DualSense — Windows launcher. Downloads the latest release into ./app and runs it.
 
 setlocal enabledelayedexpansion
 set "REPO=HamzaYslmn/Forza-Horizon-DualSense-Python"
-set "ROOT=%~dp0"
-set "APP=%ROOT%app"
+set "RELEASES=https://github.com/%REPO%/releases/latest"
+set "APP=%~dp0app"
 set "PYPROJECT=%APP%\src\pyproject.toml"
 set "GAME_CMD=%*"
 
-REM --- Resolve latest release tag ---
-echo Checking latest release...
-for /f "usebackq delims=" %%v in (`powershell -NoProfile -Command "try { (Invoke-RestMethod -UseBasicParsing -Uri 'https://api.github.com/repos/%REPO%/releases/latest' -Headers @{'User-Agent'='fh5ds-launcher'}).tag_name } catch { '' }"`) do set "LATEST=%%v"
+set "IS_ADMIN=0"
+net session >nul 2>&1 && set "IS_ADMIN=1"
+if "%IS_ADMIN%"=="1" (echo Running as administrator.) else (echo Running as standard user.)
 
-set "SOURCE=release"
+echo Checking latest release...
+for /f "usebackq delims=" %%v in (`powershell -NoProfile -Command "try { (Invoke-RestMethod -UseBasicParsing 'https://api.github.com/repos/%REPO%/releases/latest' -Headers @{'User-Agent'='fh5ds'}).tag_name } catch { '' }"`) do set "LATEST=%%v"
+set "SOURCE=tags"
 if "!LATEST!"=="" (
-    echo No release found. Falling back to 'main' branch.
+    echo No release found. Using 'main' branch.
     set "LATEST=main"
-    set "SOURCE=branch"
+    set "SOURCE=heads"
 )
 
-REM --- Read installed version from pyproject.toml ---
 set "CURRENT="
 if exist "%PYPROJECT%" (
     for /f "tokens=1* delims==" %%a in ('findstr /b /r /c:"^version" "%PYPROJECT%"') do (
@@ -37,75 +33,50 @@ if exist "%PYPROJECT%" (
     )
 )
 
-if "!CURRENT!"=="!LATEST!" if "!SOURCE!"=="release" (
-    echo Up to date ^(!CURRENT!^).
-    goto :run
-)
-if "!CURRENT!"=="" (
-    echo Installing !LATEST!...
-    goto :install
-)
-if "!SOURCE!"=="branch" (
-    echo Refreshing 'main' branch ^(installed: !CURRENT!^)...
-    goto :install
-)
+if "!SOURCE!"=="heads" (echo Refreshing 'main' branch ^(installed: !CURRENT!^)... & goto :install)
+if not defined CURRENT (echo Installing !LATEST!... & goto :install)
+if "!CURRENT!"=="!LATEST!" (echo Up to date ^(!CURRENT!^). & goto :run)
 echo Update available: !CURRENT! -^> !LATEST!
+echo If the automatic update doesn't work, download manually start script from:
+echo   %RELEASES%
 set /p "ans=Update now? [Y/n]: "
 if /I "!ans!"=="n" goto :run
 
 :install
-set "ZIP=%ROOT%fh5ds.zip"
-set "EXTRACT=%ROOT%_extract"
-if "!SOURCE!"=="branch" (
-    set "DLURL=https://github.com/%REPO%/archive/refs/heads/!LATEST!.zip"
-) else (
-    set "DLURL=https://github.com/%REPO%/archive/refs/tags/!LATEST!.zip"
-)
+set "ZIP=%~dp0fh5ds.zip"
+set "EXTRACT=%~dp0_extract"
 echo Downloading !LATEST!...
-powershell -NoProfile -Command "$ProgressPreference='SilentlyContinue'; Invoke-WebRequest -UseBasicParsing -Uri '!DLURL!' -OutFile '%ZIP%'"
+powershell -NoProfile -Command "$ProgressPreference='SilentlyContinue'; try { Invoke-WebRequest -UseBasicParsing 'https://github.com/%REPO%/archive/refs/!SOURCE!/!LATEST!.zip' -OutFile '%ZIP%'; if (Test-Path '%EXTRACT%') { Remove-Item -Recurse -Force '%EXTRACT%' }; Expand-Archive -LiteralPath '%ZIP%' -DestinationPath '%EXTRACT%' -Force } catch { exit 1 }"
 if errorlevel 1 (
-    echo Download failed.
+    echo.
+    echo Download or extract failed. Download the latest release manually from:
+    echo   %RELEASES%
+    echo and extract its contents into the "app" folder next to this script.
+    echo.
     if not exist "%APP%\src\main.py" (pause & exit /b 1)
     goto :run
 )
-if exist "%EXTRACT%" rmdir /s /q "%EXTRACT%"
-echo Extracting...
-powershell -NoProfile -Command "Expand-Archive -LiteralPath '%ZIP%' -DestinationPath '%EXTRACT%' -Force"
 if exist "%APP%" rmdir /s /q "%APP%"
-for /d %%d in ("%EXTRACT%\*") do (move "%%d" "%APP%" >nul & goto :moved)
-:moved
+for /d %%d in ("%EXTRACT%\*") do move "%%d" "%APP%" >nul
 rmdir /s /q "%EXTRACT%"
 del "%ZIP%"
 echo Installed !LATEST!.
 
 :run
-where uv >nul 2>nul
-if errorlevel 1 (
+where uv >nul 2>nul || (
     echo uv was not found. Installing from https://astral.sh/uv/ ...
     powershell -NoProfile -Command "irm https://astral.sh/uv/install.ps1 | iex"
-    where uv >nul 2>nul
-    if errorlevel 1 (
-        echo uv installed but not on PATH. Restart your terminal.
-        pause
-        exit /b 1
-    )
+    where uv >nul 2>nul || (echo uv installed but not on PATH. Restart your terminal. & pause & exit /b 1)
 )
 
 cd /d "%APP%\src"
-if defined GAME_CMD (
-    echo Launching game: !GAME_CMD!
-    start "" !GAME_CMD!
-)
+if defined GAME_CMD (echo Launching game: !GAME_CMD! & start "" !GAME_CMD!)
 set "PYTHONHOME="
 set "PYTHONPATH="
 set "PYTHONNOUSERSITE=1"
 set "FH5DS_IS_ADMIN=%IS_ADMIN%"
 uv run main.py
-set "EXITCODE=%ERRORLEVEL%"
 echo.
-echo App exited with code %EXITCODE%.
-if not defined GAME_CMD (
-    echo Press Enter to close this window...
-    pause >nul
-)
+echo App exited with code %ERRORLEVEL%.
+if not defined GAME_CMD pause >nul
 endlocal
