@@ -14,7 +14,7 @@ def _max_abs(t, prefix):
 
 def run(ds, listener, s, stop_event=None):
     OFF = dualsense.triggers.off()
-    anim = dualsense.TriggerAnimation(s)
+    controller = dualsense.Controller(s)
     prev = None
     last_pkt = time.monotonic()
     last_log = 0.0
@@ -58,7 +58,7 @@ def run(ds, listener, s, stop_event=None):
             log.warning("Bad packet from %s:%d (%d bytes): %s", addr[0], addr[1], len(pkt), e)
             continue
 
-        left, right = anim.update(t, s)
+        left, right = controller.update(t, s)
 
         if (left, right) != prev:
             ds.set(left, right); prev = (left, right)

@@ -37,21 +37,21 @@ DEFAULT_LOG_LEVEL = "INFO"
 
 log = logging.getLogger("fhds")
 
-L2_TOGGLES = [
-    ("enable_brake_resistance", "Brake stiffness"),
-    ("enable_handbrake_bonus",  "Handbrake stiffness bonus"),
-    ("enable_abs",              "ABS rumble"),
-    ("enable_gear_shift_brake", "Shift thump"),
+TRIGGER_CONTROLS = [
+    ("L2", [
+        ("enable_brake_resistance", "Brake stiffness"),
+        ("enable_handbrake_bonus",  "Handbrake stiffness bonus"),
+        ("enable_abs",              "ABS rumble"),
+        ("enable_gear_shift_brake", "Shift thump"),
+    ]),
+    ("R2", [
+        ("enable_throttle_resistance", "Throttle stiffness"),
+        ("enable_rev_limiter",         "Redline buzz"),
+        ("enable_gear_shift",          "Shift thump"),
+    ]),
 ]
 
-R2_TOGGLES = [
-    ("enable_throttle_resistance", "Throttle stiffness"),
-    ("enable_rev_limiter",         "Redline buzz"),
-    ("enable_gear_shift",          "Shift thump"),
-]
-
-# (section title, [(attr, label), ...])
-# (attr, label, min, max) — range shown to the user and clamped on submit.
+# (section title, [(attr, label, min, max), ...]) — range clamped on submit.
 SETTING_SECTIONS = [
     ("Pedals / deadzones", [
         ("accel_deadzone",          "Accel deadzone",       0, 255),
@@ -119,30 +119,39 @@ class _LogHandler(logging.Handler):
             self.app.call_from_thread(self.app.write_log, msg)
 
 
-class ControlsPage(VerticalScroll):
-    DEFAULT_CLASSES = "page controls-page"
+class TriggerColumn(Vertical):
+    """Vertical stack of on/off switches for one trigger's effects."""
+    DEFAULT_CLASSES = "trigger-column"
+
+    def __init__(self, trigger, toggles, settings):
+        super().__init__()
+        self.trigger = trigger
+        self.toggles = toggles
+        self.settings = settings
+
+    def compose(self) -> ComposeResult:
+        yield Label(self.trigger, classes="section")
+        for attr, label in self.toggles:
+            with Horizontal(classes="row"):
+                yield Switch(value=getattr(self.settings, attr), id=attr)
+                yield Label(label)
+
+
+class EffectsPanel(VerticalScroll):
+    """Tab content: one TriggerColumn side-by-side per trigger."""
+    DEFAULT_CLASSES = "page effects-panel"
 
     def __init__(self, settings):
         super().__init__()
         self.settings = settings
 
     def compose(self) -> ComposeResult:
-        with Horizontal(classes="controls-columns"):
-            with Vertical(classes="controls-col"):
-                yield Label("L2 — Brake", classes="section")
-                for attr, label in L2_TOGGLES:
-                    with Horizontal(classes="row"):
-                        yield Switch(value=getattr(self.settings, attr), id=attr)
-                        yield Label(label)
-            with Vertical(classes="controls-col"):
-                yield Label("R2 — Gas", classes="section")
-                for attr, label in R2_TOGGLES:
-                    with Horizontal(classes="row"):
-                        yield Switch(value=getattr(self.settings, attr), id=attr)
-                        yield Label(label)
+        with Horizontal(classes="effects-grid"):
+            for trigger, toggles in TRIGGER_CONTROLS:
+                yield TriggerColumn(trigger, toggles, self.settings)
 
 
-class SettingsPage(VerticalScroll):
+class TuningPanel(VerticalScroll):
     DEFAULT_CLASSES = "page"
 
     def __init__(self, settings):
@@ -175,10 +184,10 @@ class TriggerTUI(App):
     TabPane { padding: 1 2; align-horizontal: center; }
 
     .page { width: 64; max-width: 100%; height: 1fr; padding: 1 2; }
-    .controls-page { width: 80; }
+    .effects-panel { width: 80; }
 
-    .controls-columns { width: 1fr; height: auto; }
-    .controls-col { width: 1fr; height: auto; padding: 0 1; }
+    .effects-grid { width: 1fr; height: auto; }
+    .trigger-column { width: 1fr; height: auto; padding: 0 1; }
 
     Label.section { text-style: bold; color: $accent; padding: 1 0 0 0; }
 
@@ -216,9 +225,9 @@ class TriggerTUI(App):
             yield Static(f"v{_version() or '?'}", id="version")
         with TabbedContent(initial="tab-controls"):
             with TabPane("Controls", id="tab-controls"):
-                yield ControlsPage(self.settings)
+                yield EffectsPanel(self.settings)
             with TabPane("Settings", id="tab-settings"):
-                yield SettingsPage(self.settings)
+                yield TuningPanel(self.settings)
             with TabPane("Logs", id="tab-logs"):
                 yield RichLog(id="logs", highlight=False, markup=False, wrap=True, max_lines=2000)
         yield Footer()
