@@ -9,7 +9,7 @@ log = logging.getLogger("fhds")
 
 
 def _max_abs(t, prefix):
-    return max(abs(t.get(f"{prefix}_{wheel}", 0.0)) for wheel in ("fl", "fr", "rl", "rr"))
+    return max(abs(t[f"{prefix}_{wheel}"]) for wheel in ("fl", "fr", "rl", "rr"))
 
 
 def run(ds, listener, s, stop_event=None):
@@ -69,4 +69,4 @@ def run(ds, listener, s, stop_event=None):
             slip_r = _max_abs(t, "tire_slip_ratio")
             slip_c = _max_abs(t, "tire_combined_slip")
             log.debug("[%s] %6.1f km/h | gear %d | gas %3d R=%s | brake %3d L=%s | slip %.2f combined %.2f",
-                      tag, t["speed"], t.get("gear", 0), t["accel"], right, t["brake"], left, slip_r, slip_c)
+                      tag, t["speed"], t["gear"], t["accel"], right, t["brake"], left, slip_r, slip_c)

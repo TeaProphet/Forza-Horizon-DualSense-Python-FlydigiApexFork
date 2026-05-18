@@ -118,6 +118,7 @@ class TriggerTUI(App):
         root.setLevel(getattr(logging, DEFAULT_LOG_LEVEL))
 
         self.refresh_status()
+        self.refresh_profile()
         self.set_interval(1.0, self.refresh_status)
         log_latest_commit_age()
         log.info("Starting controller and telemetry listener...")
@@ -170,6 +171,10 @@ class TriggerTUI(App):
         connected = bool(self._ds and self._ds.connected)
         state = "[bold green]connected[/]" if connected else "[bold red]waiting[/]"
         self.query_one("#status", Static).update(f"DualSense: {state}")
+
+    def refresh_profile(self):
+        """Update the active profile label. Cheap path is called only on profile
+        mutations / app mount — avoids hitting disk on the per-second timer."""
         try:
             active = profiles.load_store().get("active") or "(none)"
         except Exception:

@@ -68,7 +68,7 @@ def _amp_to_strength(amp_byte):
     return max(1, min(8, (max(0, int(amp_byte)) // 32) + 1))
 
 def _max_slip(t, prefix):
-    return max(abs(t.get(f"{prefix}_{w}", 0.0)) for w in ("fl", "fr", "rl", "rr"))
+    return max(abs(t[f"{prefix}_{w}"]) for w in ("fl", "fr", "rl", "rr"))
 
 def _ramp(value, deadzone, baseline, max_force, curve, ceiling):
     """deadzone..ceiling -> baseline..max_force, curve = exponent."""
@@ -98,7 +98,7 @@ class TriggerAnimations:
         self._rev_until = 0.0
 
     def arm_shift(self, t, s, now):
-        gear, speed = t.get("gear", 0), t.get("speed", 0.0)
+        gear, speed = t["gear"], t["speed"]
         if (self._prev_gear > 0 and gear > 0
                 and gear != self._prev_gear and speed > 3.0):
             self._shift_until = now + s.gear_shift_duration_ms / 1000.0
@@ -116,9 +116,9 @@ class TriggerAnimations:
         # Brief hold so rpm bouncing against the limit doesn't stutter.
         if not s.enable_rev_limiter:
             return None
-        if t.get("accel", 0) >= s.accel_deadzone:
-            max_rpm = t.get("max_rpm", 0.0)
-            rpm_r = t.get("rpm", 0.0) / max_rpm if max_rpm > 0 else 0.0
+        if t["accel"] >= s.accel_deadzone:
+            max_rpm = t["max_rpm"]
+            rpm_r = t["rpm"] / max_rpm if max_rpm > 0 else 0.0
             if rpm_r > s.rev_limit_ratio:
                 self._rev_until = now + s.rev_limit_hold_ms / 1000.0
         if now < self._rev_until:
@@ -128,7 +128,7 @@ class TriggerAnimations:
     def abs_pulse(self, t, s):
         if not s.enable_abs:
             return None
-        if t.get("brake", 0) < s.abs_brake_threshold or t.get("speed", 0.0) < s.abs_min_speed_kmh:
+        if t["brake"] < s.abs_brake_threshold or t["speed"] < s.abs_min_speed_kmh:
             return None
         if (_max_slip(t, "tire_slip_ratio") < s.abs_slip_ratio_threshold
                 and _max_slip(t, "tire_combined_slip") < s.abs_combined_slip_threshold):
@@ -136,10 +136,10 @@ class TriggerAnimations:
         return vibration(s.abs_freq, s.abs_amp)
 
     def brake_resistance(self, t, s):
-        handbrake = s.enable_handbrake_bonus and t.get("handbrake", 0)
+        handbrake = s.enable_handbrake_bonus and t["handbrake"]
         if not s.enable_brake_resistance:
             return rigid(s.handbrake_bonus) if handbrake else off()
-        force = _ramp(t.get("brake", 0), s.brake_deadzone, s.brake_baseline_force,
+        force = _ramp(t["brake"], s.brake_deadzone, s.brake_baseline_force,
                       s.brake_max_force, s.brake_curve, s.brake_wall_engage_at)
         if handbrake:
             force += s.handbrake_bonus
@@ -148,7 +148,7 @@ class TriggerAnimations:
     def throttle_ramp(self, t, s):
         if not s.enable_throttle_resistance:
             return off()
-        return rigid(_ramp(t.get("accel", 0), s.accel_deadzone, s.throttle_baseline_force,
+        return rigid(_ramp(t["accel"], s.accel_deadzone, s.throttle_baseline_force,
                            s.throttle_max_force, s.throttle_curve, s.throttle_wall_engage_at))
 
 
@@ -168,7 +168,7 @@ class Controller:
         self._r2_in_wall = False
 
     def update(self, t, s):
-        if not t.get("on", False):
+        if not t["on"]:
             return off(), off()
         now = time.monotonic()
         if s.enable_gear_shift or s.enable_gear_shift_brake:
@@ -176,7 +176,7 @@ class Controller:
         return self.L2(t, s, now), self.R2(t, s, now)
 
     def L2(self, t, s, now):
-        brake = t.get("brake", 0)
+        brake = t["brake"]
         if s.enable_gear_shift_brake:
             shift = self.anim.shift_burst(s, now, brake, s.brake_wall_engage_at)
             if shift:
@@ -191,7 +191,7 @@ class Controller:
         return self.anim.brake_resistance(t, s)
 
     def R2(self, t, s, now):
-        accel = t.get("accel", 0)
+        accel = t["accel"]
         if s.enable_gear_shift:
             shift = self.anim.shift_burst(s, now, accel, s.throttle_wall_engage_at)
             if shift:

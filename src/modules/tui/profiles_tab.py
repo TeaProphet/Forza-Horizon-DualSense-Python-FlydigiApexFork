@@ -77,6 +77,8 @@ class ProfilesTab(Vertical):
             label = f"{name}  [dim](active)[/]" if name == active else name
             lv.append(ListItem(Static(label, markup=True), name=name))
         self.query_one("#profile-active", Static).update(self._active_text())
+        if hasattr(self.app, "refresh_profile"):
+            self.app.refresh_profile()
 
     def _selected_name(self) -> str:
         lv = self.query_one("#profile-list", ListView)
