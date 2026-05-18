@@ -47,6 +47,7 @@ class TriggerTUI(App):
     #profile { width: auto; height: 1; padding: 0 2; color: $accent; text-style: bold; }
     #status { width: 1fr; height: 1; padding: 0 2; text-align: center; }
     #version { width: auto; height: 1; padding: 0 2; text-align: right; color: $text-muted; }
+    #version:hover { color: $accent; text-style: underline; }
 
     TabbedContent { height: 1fr; }
     Tabs { align-horizontal: center; }
@@ -165,6 +166,11 @@ class TriggerTUI(App):
         finally:
             if not self._stop.is_set():
                 self.call_from_thread(self.exit)
+
+    def on_click(self, event) -> None:
+        widget = getattr(event, "widget", None)
+        if widget is not None and widget.id == "version":
+            webbrowser.open(self.CHANGELOG_URL)
 
     # --- topbar / logs bridge -----------------------------------------------
 
