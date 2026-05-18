@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 import sys
 import traceback
 from datetime import datetime
@@ -8,12 +9,12 @@ from pathlib import Path
 from modules import dualsense, udplistener, setup_logging, loop
 from modules import preferences
 from modules.settings import Settings
-from modules.update_check import log_latest_commit_age
 
 log = logging.getLogger("fhds")
 
 # MARK: Crash log — only written on unhandled exceptions
-CRASH_LOG = Path(__file__).resolve().parent / "crash.log"
+_DATA = Path(__file__).resolve().parent / "data"
+CRASH_LOG = _DATA / "crash.log"
 
 
 def _excepthook(exc_type, exc, tb):
@@ -21,6 +22,7 @@ def _excepthook(exc_type, exc, tb):
         sys.__excepthook__(exc_type, exc, tb)
         return
     try:
+        _DATA.mkdir(parents=True, exist_ok=True)
         with open(CRASH_LOG, "w", encoding="utf-8") as f:
             f.write(f"Crash at {datetime.now():%Y-%m-%d %H:%M:%S}\n\n")
             traceback.print_exception(exc_type, exc, tb, file=f)
@@ -51,8 +53,25 @@ def run_tui(s: Settings) -> None:
     TriggerTUI(s).run()
 
 
+def _confirm(prompt: str) -> bool:
+    try:
+        return input(prompt).strip().lower() in ("y", "yes")
+    except (EOFError, KeyboardInterrupt):
+        return False
+
+
 # MARK: Entry point
 if __name__ == "__main__":
+    if os.environ.get("IS_ZUV", "").lower() != "true" and not os.environ.get("FHDS_DEV"):
+        print(
+            "\n[!] You are running an older standalone version of FH DualSense.\n"
+            "    Please download the latest launcher (win_start.bat / linux_start.sh)\n"
+            "    from: https://github.com/HamzaYslmn/Forza-Horizon-DualSense-Python/releases/latest\n"
+            "    (set FHDS_DEV=1 to suppress this prompt during development)\n",
+            file=sys.stderr, flush=True,
+        )
+        if not _confirm("Continue with this old version anyway? [y/N]: "):
+            sys.exit(0)
     p = argparse.ArgumentParser(description="FH DualSense adaptive triggers (Steam keeps rumble)")
     p.add_argument("--host", default="127.0.0.1", help="UDP bind address")
     p.add_argument("--port", type=int, default=None, help="UDP port")
@@ -65,15 +84,8 @@ if __name__ == "__main__":
         preferences.load(settings)
     except preferences.PreferencesError as e:
         print(f"\n{e}", file=sys.stderr)
-        print(f"Reset {preferences.PATH.name} to defaults? "
-              f"(a backup will be saved as {preferences.PATH.name}.bak) [y/N]: ",
-              end="", file=sys.stderr, flush=True)
-        answer = ""
-        try:
-            answer = input().strip().lower()
-        except (EOFError, KeyboardInterrupt):
-            pass
-        if answer not in ("y", "yes"):
+        if not _confirm(f"Reset {preferences.PATH.name} to defaults? "
+                        f"(backup saved as {preferences.PATH.name}.bak) [y/N]: "):
             print("Aborted. Please fix or delete the file manually, then retry.",
                   file=sys.stderr)
             sys.exit(1)
@@ -86,7 +98,6 @@ if __name__ == "__main__":
 
     if args.headless:
         setup_logging(args.debug)
-        log_latest_commit_age()
         run(settings)
     else:
         run_tui(settings)

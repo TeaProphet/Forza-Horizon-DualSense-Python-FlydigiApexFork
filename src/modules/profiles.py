@@ -56,7 +56,7 @@ def save_as(name: str, s) -> str:
         return ""
     store = load_store()
     final = _unique_name(name, store["profiles"])
-    store["profiles"][final] = preferences._fields(s)
+    store["profiles"][final] = preferences._profile_fields(s)
     store["active"] = final
     _persist(store["profiles"], store["active"])
     return final
@@ -67,12 +67,7 @@ def apply(name: str, s) -> bool:
     snap = store["profiles"].get(name)
     if snap is None:
         return False
-    for k, current in preferences._fields(s).items():
-        if k in snap:
-            try:
-                setattr(s, k, type(current)(snap[k]))
-            except (TypeError, ValueError):
-                pass
+    preferences._apply_snap(s, snap, preferences._profile_fields(s))
     _persist(store["profiles"], name)
     return True
 

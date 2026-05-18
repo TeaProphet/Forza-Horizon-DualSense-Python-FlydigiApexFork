@@ -20,9 +20,13 @@ from pathlib import Path
 
 log = logging.getLogger("fhds")
 
-PATH = Path(__file__).resolve().parent.parent / "user_preferences.json"
+_DATA = Path(__file__).resolve().parent.parent / "data"
+PATH = _DATA / "user_preferences.json"
 PYPROJECT = Path(__file__).resolve().parent.parent / "pyproject.toml"
 DEFAULT_PROFILE_NAME = "Default"
+
+# Settings fields persisted at the top of the file, shared across all profiles.
+GLOBAL_FIELDS = frozenset({"enable_reconnect"})
 
 _SIMPLE = (bool, int, float, str)
 
@@ -41,6 +45,24 @@ def _version() -> str:
 
 def _fields(s) -> dict:
     return {k: v for k, v in vars(s).items() if isinstance(v, _SIMPLE)}
+
+
+def _profile_fields(s) -> dict:
+    return {k: v for k, v in _fields(s).items() if k not in GLOBAL_FIELDS}
+
+
+def _global_fields(s) -> dict:
+    return {k: v for k, v in _fields(s).items() if k in GLOBAL_FIELDS}
+
+
+def _apply_snap(s, snap: dict, fields: dict) -> None:
+    """Copy values from `snap` into `s`, coerced to the type of each field."""
+    for k, current in fields.items():
+        if k in snap:
+            try:
+                setattr(s, k, type(current)(snap[k]))
+            except (TypeError, ValueError):
+                pass
 
 
 def _read_raw() -> dict:
@@ -74,6 +96,7 @@ def _read() -> dict:
 def _write(raw: dict) -> None:
     raw["version"] = _version()
     try:
+        _DATA.mkdir(parents=True, exist_ok=True)
         PATH.write_text(json.dumps(raw, indent=2), encoding="utf-8")
     except OSError as e:
         log.warning("Could not save preferences: %s", e)
@@ -93,15 +116,18 @@ def _migrate_legacy(raw: dict, s) -> None:
 
 
 def _ensure_active(raw: dict, s) -> dict:
-    """Guarantee raw has a profiles dict and a valid active_profile."""
+    """Guarantee raw has a profiles dict, valid active_profile, and globals."""
     _migrate_legacy(raw, s)
     raw.setdefault("profiles", {})
     raw.setdefault("active_profile", "")
+    raw.setdefault("globals", {})
     if not raw["profiles"]:
-        raw["profiles"][DEFAULT_PROFILE_NAME] = _fields(s)
+        raw["profiles"][DEFAULT_PROFILE_NAME] = _profile_fields(s)
         raw["active_profile"] = DEFAULT_PROFILE_NAME
     elif raw["active_profile"] not in raw["profiles"]:
         raw["active_profile"] = sorted(raw["profiles"].keys(), key=str.lower)[0]
+    for k, v in _global_fields(s).items():
+        raw["globals"].setdefault(k, v)
     return raw
 
 
@@ -117,13 +143,9 @@ def load(s) -> None:
                  raw.get("version"), _version() or "unknown")
     raw = _ensure_active(raw, s)
     _write(raw)
-    snap = raw["profiles"][raw["active_profile"]]
-    for k, current in _fields(s).items():
-        if k in snap:
-            try:
-                setattr(s, k, type(current)(snap[k]))
-            except (TypeError, ValueError):
-                pass
+    snap = dict(raw["globals"])
+    snap.update(raw["profiles"][raw["active_profile"]])
+    _apply_snap(s, snap, _fields(s))
 
 
 def reset_file() -> None:
@@ -143,15 +165,16 @@ def reset_file() -> None:
 
 def save(s) -> None:
     raw = _ensure_active(_read(), s)
-    raw["profiles"][raw["active_profile"]] = _fields(s)
+    raw["profiles"][raw["active_profile"]] = _profile_fields(s)
+    raw["globals"].update(_global_fields(s))
     _write(raw)
 
 
 def reset(s) -> None:
     """Restore the active profile to class defaults; mutate s in place so the
-    running loop picks them up on its next frame."""
+    running loop picks them up on its next frame. Global fields are left intact."""
     defaults = type(s)()
-    for k in _fields(s):
+    for k in _profile_fields(s):
         if hasattr(defaults, k):
             setattr(s, k, getattr(defaults, k))
     save(s)
