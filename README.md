@@ -8,7 +8,7 @@
 > 
 > For CS:GO item Sponsorship :D : <https://steamcommunity.com/tradeoffer/new/?partner=291638630&token=Xyg4vITU>
 
-![TUI Screenshot](img/tui.png)
+[![Forza Horizon DualSense Adaptive Trigger Mod](https://img.youtube.com/vi/-3Cp0PfL52Y/maxresdefault.jpg)](https://www.youtube.com/watch?v=-3Cp0PfL52Y)
 
 > 💛 Huge thanks to **[Jared (jmac122)](https://github.com/jmac122)** for sponsoring this project by gifting me Forza Horizon 6.
 
