@@ -258,7 +258,7 @@ class DualSense:
             time.sleep(0.2)
             self._safe_write(self._build(off(), off()))
         # MARK: Power saver — one-shot at connect
-        self._safe_write(self._build_power_saver())
+        # self._safe_write(self._build_power_saver()) # Commented out due to report discussions/27
         return True
 
     def _disconnect(self, reason: str = ""):
