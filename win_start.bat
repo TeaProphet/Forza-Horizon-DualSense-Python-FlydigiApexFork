@@ -24,12 +24,14 @@ set "GAME="
 :argloop
 if "%~1"=="" goto ready
 set "a=%~1"
+
 if "!a:~0,2!"=="--" goto flag_arg
-if "!GAME!"=="" (set "GAME=%~1") else (set "GAME=!GAME! %~1")
+if not defined GAME (set "GAME=%1") else set "GAME=!GAME! %1"
 goto next_arg
 :flag_arg
 set "FLAGS=!FLAGS! %1"
 :next_arg
+
 shift
 goto argloop
 
@@ -53,7 +55,7 @@ if errorlevel 1 (
 )
 
 REM Optional Steam wrapper: pass game cmd (e.g. start "" steam://rungameid/1551360)
-if defined GAME start "" "%GAME%"
+if defined GAME start "" %GAME%
 
 REM Don't let host Python env leak into the bundled venv.
 set "PYTHONHOME="
