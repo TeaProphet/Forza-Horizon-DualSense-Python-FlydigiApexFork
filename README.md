@@ -67,9 +67,16 @@ That's why you can run both at the same time and neither one breaks the other.
 
 1. Go to the [latest release](https://github.com/HamzaYslmn/Forza-Horizon-DualSense-Python/releases/latest).
 2. Download **`win_start.bat`** (Windows) or **`linux_start.sh`** (Linux).
-3. Put it in any empty folder and double-click it.
+3. Put it in any empty folder.
+4. **Important:** We highly recommend installing **`uv`** manually first. Open PowerShell and run this command:
+   ```powershell
+   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+   ```
+   - If you skip this, `win_start.bat` will try to install `uv` automatically. However, Windows might block this auto-install with an "Execution Policy" error in PowerShell.
+   - **If you get the Execution Policy error:** Hold **Shift + Right-Click** in the folder, click **"Open PowerShell window here"**, paste `Set-ExecutionPolicy RemoteSigned -scope CurrentUser` and hit Enter, then type `Y` and Enter.
+5. Double-click `win_start.bat` (or `linux_start.sh`).
 
-The launcher handles everything: downloads the app, installs Python if needed, and runs it. Next time you run it, it checks for updates.
+The launcher handles downloading the app, preparing the environment, and running it. Next time you run it, it will also check for updates.
 
 > **Linux extras:** install `libhidapi` (`sudo apt install libhidapi-hidraw0` / `sudo pacman -S hidapi` / `sudo dnf install hidapi`) and the udev rule from `app/packaging/linux/70-dualsense.rules`. Then unplug/replug the controller once.
 
@@ -192,6 +199,7 @@ Every effect (brake force, ABS buzz, gear thump, rev limiter, etc.) can be tweak
 |---------|-----|
 | `DualSense gamepad interface not found` | Controller not connected, or HidHide is hiding it — allowlist `python.exe`. |
 | `No UDP packets yet` | Forza's Data Out is off, IP/port is wrong, or Windows Firewall is blocking. |
+| Windows Defender / SmartScreen blocks `win_start.bat` | 1. On the blue "Windows protected your PC" screen, click **"More info"**.<br>2. Click the **"Run anyway"** button that appears at the bottom. (The script only downloads required dependencies.) |
 | Triggers feel weak | Raise `brake_max_force` / `throttle_max_force`, or lower the matching `curve`. |
 | Triggers feel like a brick wall | Lower `brake_max_force` / `throttle_max_force`, or raise the matching `curve`. |
 | Triggers feel stiff at a light press | Lower the baseline force, or raise the `curve`. |
