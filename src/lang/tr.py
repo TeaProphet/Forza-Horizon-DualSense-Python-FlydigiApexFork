@@ -60,6 +60,8 @@ STRINGS = {
     "Click again to confirm reset": "Sıfırlamayı onaylamak için tekrar tıklayın",
     "In Forza HUD: host 127.0.0.1 (try ::1 if it fails).":
         "Forza HUD'da host 127.0.0.1 olmalı (çalışmazsa ::1 deneyin).",
+    "UDP port {port} is in use. Close the other listener or change the port in the System tab.":
+        "UDP {port} bağlantı noktası kullanımda. Diğer dinleyiciyi kapatın ya da Sistem sekmesinden portu değiştirin.",
 
     # --- system tab sections / fields ---
     "Telemetry (applies on next launch)": "Telemetri (sonraki açılışta uygulanır)",
