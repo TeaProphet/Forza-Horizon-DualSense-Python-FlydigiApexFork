@@ -29,6 +29,13 @@ M_WEAPON_LIMITED = 0x12
 
 RAW_MAX = 255
 
+# Below this car speed (km/h) we trust raw wheel rotation instead of slip_ratio
+# (slip_ratio degenerates near zero speed). Above it, slip_ratio is canonical.
+LOW_SPEED_KMH = 5.0
+# Wheel angular speed (rad/s) above which we count as spinning at standstill.
+# ~30 rad/s = ~3 wheel revs/sec, clearly spun-up regardless of tire size.
+BURNOUT_ROT_THRESHOLD = 30.0
+
 
 def _clamp(v, hi=RAW_MAX):
     return max(0, min(hi, round(v)))
@@ -192,18 +199,22 @@ class TriggerAnimations:
         return None
 
     def wheelspin_buzz(self, t, s, now):
-        # Per-surface R2 buzz when driven wheels spin faster than the road.
+        # R2 buzz when tires lose grip (wheelspin or drift).
+        # At speed: tire_combined_slip catches both longitudinal + lateral slip.
+        # At standstill: slip values degenerate, so trust raw wheel rotation.
         if not s.enable_wheelspin_buzz:
             return None
-        # Need real throttle input above 10 km/h; below that launch-spin dominates.
-        if t["speed"] < 10.0 or t["accel"] < s.accel_deadzone:
+        if t["accel"] < s.accel_deadzone:
             return None
-        # Positive slip only. Negative = locked wheels (handbrake/ABS), not wheelspin.
         wheels = DRIVEN_WHEELS.get(t["drive_train"], ("fl", "fr", "rl", "rr"))
-        if max(t[f"tire_slip_ratio_{w}"] for w in wheels) < 1.2:
-            return None
+        if t["speed"] < LOW_SPEED_KMH:
+            if max(abs(t[f"wheel_rotation_speed_{w}"]) for w in wheels) < BURNOUT_ROT_THRESHOLD:
+                return None
+        else:
+            if max(abs(t[f"tire_combined_slip_{w}"]) for w in wheels) < 1.0:
+                return None
         # Surface profile: water halves amp, off-road gets a thumpier buzz.
-        if any(t[f"wheel_in_puddle_depth_{w}"] > 0.0 for w in wheels):
+        if any(t[f"wheel_in_puddle_{w}"] > 0 for w in wheels):
             return vibrate(100, max(1, s.wheelspin_amp // 2))
         rumble = max(abs(t[f"surface_rumble_{w}"]) for w in wheels)
         if rumble > 0.30:        # gravel / rocks
