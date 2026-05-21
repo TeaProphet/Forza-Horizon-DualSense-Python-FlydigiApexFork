@@ -19,6 +19,7 @@ from .logs_tab import DEFAULT_LOG_LEVEL, LogsTab
 from .profiles_tab import ProfilesTab
 from .settings_tab import SettingsTab
 from .system_tab import SystemTab
+from .widgets import RangeSlider
 
 log = logging.getLogger("fhds")
 
@@ -229,6 +230,11 @@ class TriggerTUI(App):
                     attr = inp.id[4:]
                     if hasattr(self.settings, attr):
                         inp.value = str(getattr(self.settings, attr))
+            for sld in self.query(RangeSlider):
+                if sld.id and sld.id.startswith("slider-"):
+                    attr = sld.id[len("slider-"):]
+                    if hasattr(self.settings, attr):
+                        sld.value = float(getattr(self.settings, attr))
         finally:
             self._refreshing = False
 
