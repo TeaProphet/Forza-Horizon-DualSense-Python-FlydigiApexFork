@@ -34,20 +34,50 @@ BT  = {"rid": 0x31, "flags": 2, "vf1": 3, "psav": 11, "r": 12, "l": 23, "size": 
 # allocating "\xA2" + bytes(buf[:74]) on every write.
 _BT_CRC_SEED = zlib.crc32(b"\xA2")
 
+# Cached BT MAC per hidapi path. Populated lazily by _enumerate_dualsenses
+# for USB DualSenses (Windows hidapi returns an empty serial for those).
+# The lock serialises the open_path/feature-read section so the I/O thread and
+# the UI thread don't both try to claim the same exclusive HID handle.
+_mac_cache: dict[bytes, str] = {}
+_mac_cache_lock = threading.Lock()
+
+
 
 def _enumerate_dualsenses():
-    return [d for d in hid.enumerate(VENDOR_ID, 0)
-            if d.get("product_id") in PRODUCT_IDS]
-
-
-def _find_gamepad():
-    """Pick the Game Pad HID interface (usage_page=1, usage=5) or None.
-    Audio/sensor interfaces share VID/PID and silently drop trigger writes."""
-    devices = _enumerate_dualsenses()
+    """DualSense game-pad interfaces visible to hidapi. Filtered to
+    usage_page=1, usage=5 (audio/sensor interfaces share VID/PID).
+    Windows hidapi returns empty serials for USB DualSenses; we backfill via HID feature report 0x09."""
+    devices = [d for d in hid.enumerate(VENDOR_ID, 0)
+               if d.get("product_id") in PRODUCT_IDS
+               and d.get("usage_page", 1) == 1
+               and d.get("usage", 5) == 5]
     for d in devices:
-        if d.get("usage_page", 1) == 1 and d.get("usage", 5) == 5:
-            return d
-    return devices[0] if devices else None
+        if d.get("serial_number"):
+            continue
+        path = d["path"]
+        with _mac_cache_lock:
+            mac = _mac_cache.get(path)
+            if mac is None:
+                dev = hid.device()
+                try:
+                    dev.open_path(path)
+                    data = dev.get_feature_report(0x09, 64)
+                except (OSError, IOError) as e:
+                    log.warning("feature 0x09 read failed on %r: %s", path, e)
+                    dev.close()
+                    continue
+                dev.close()
+                # Feature 0x09 returns 20 bytes; bytes 1-6 are the controller's
+                # BT MAC in little-endian. hidapi formats BT-transport serials
+                # the same way (verified on hidapi-windows 0.15.0). Short reads
+                # (hidapi can return [] on BT-stack timeout) are skipped so a
+                # bad serial does not poison the cache.
+                if len(data) < 7:
+                    continue
+                mac = "".join(f"{b:02x}" for b in data[6:0:-1])
+                _mac_cache[path] = mac
+        d["serial_number"] = mac
+    return devices
 
 
 def _is_bluetooth(info):
@@ -84,6 +114,54 @@ def _log_open_failure(err) -> None:
         log.warning("DualSense open failed (%s) — another app may be holding it open.", err)
 
 
+def identify_pulse(info: dict, force: int = 180, duration_s: float = 0.2) -> bool:
+    """Pulse both triggers briefly on a controller picked from a hidapi info dict.
+    Best-effort; returns False if the open or write failed."""
+    L = BT if _is_bluetooth(info) else USB
+    dev = hid.device()
+    try:
+        dev.open_path(info["path"])
+    except (OSError, IOError) as e:
+        log.warning("identify_pulse: open_path failed on %r: %s", info.get("path"), e)
+        return False
+    try:
+        # pulse on
+        pulse = (M_RIGID, (0, force))
+        buf = bytearray(L["size"])
+        buf[0] = L["rid"]
+        if L["bt"]:
+            buf[1] = 0x02
+        buf[L["flags"]] = TRIG_FLAGS
+        for pos, (mode, params) in ((L["r"], pulse), (L["l"], pulse)):
+            buf[pos] = mode
+            buf[pos + 1:pos + 1 + len(params)] = params[:10]
+        if L["bt"]:
+            crc = zlib.crc32(memoryview(buf)[:74], _BT_CRC_SEED)
+            struct.pack_into("<I", buf, 74, crc)
+        dev.write(buf)
+        time.sleep(duration_s)
+        # pulse off
+        rest = off()
+        buf = bytearray(L["size"])
+        buf[0] = L["rid"]
+        if L["bt"]:
+            buf[1] = 0x02
+        buf[L["flags"]] = TRIG_FLAGS
+        for pos, (mode, params) in ((L["r"], rest), (L["l"], rest)):
+            buf[pos] = mode
+            buf[pos + 1:pos + 1 + len(params)] = params[:10]
+        if L["bt"]:
+            crc = zlib.crc32(memoryview(buf)[:74], _BT_CRC_SEED)
+            struct.pack_into("<I", buf, 74, crc)
+        dev.write(buf)
+        return True
+    except (OSError, IOError) as e:
+        log.warning("identify_pulse: write failed on %r: %s", info.get("path"), e)
+        return False
+    finally:
+        dev.close()
+
+
 class DualSense:
     """Triggers-only DualSense writer. Steam keeps rumble bits untouched.
 
@@ -97,6 +175,7 @@ class DualSense:
         enable_startup_pulse: bool = True,
         reconnect_interval_s: float = 5.0,
         enable_reconnect: bool = False,
+        controller_lock_serial: str = "",
     ):
         self.dev = None
         self.dev_path = None
@@ -124,8 +203,11 @@ class DualSense:
         self._last_input_at = 0.0
         # HidHide-persistent: once True, _disconnect() is a no-op and the I/O
         # loop never reconnects. Latched on first successful connect when
-        # HidHide is detected; never cleared.
+        # HidHide is detected; cleared only by force_reconnect() for one
+        # hot-swap cycle (re-latches on the next successful connect).
         self._persistent = False
+        # Locked controller serial (empty = first-found). Persists across launches.
+        self._lock_serial = controller_lock_serial
 
     @property
     def connected(self) -> bool:
@@ -189,6 +271,21 @@ class DualSense:
         self._wake.set()
         log.info("Reconnect interval = %.1fs", new)
 
+    def set_selection(self, lock_serial: str) -> None:
+        """Store new lock serial for the next connect attempt.
+        Does not disconnect; call force_reconnect() to hot-swap."""
+        self._lock_serial = lock_serial
+
+    def force_reconnect(self) -> None:
+        """Drop the current handle and reopen the I/O loop's reconnect gate so
+        the picker's Apply can hot-swap regardless of enable_reconnect. Also
+        unlatches HidHide persistent mode for one cycle (re-latches on next connect)."""
+        self._persistent = False
+        self._ever_connected = False
+        self._last_attempt = -1e9
+        self._disconnect("user-initiated switch")
+        self._wake.set()
+
     def _safe_write(self, buf) -> None:
         """Best-effort write — used for startup pulses, power-saver, and the
         off-pulse during disconnect, all of which run while the device may be
@@ -217,16 +314,18 @@ class DualSense:
                 )
                 log.info("HID enumerate: %d DualSense interface(s): %s", n, summary)
 
-        info = _find_gamepad()
-        if not info:
-            if devices and not self._waiting_hinted:
-                log.warning("DualSense interfaces present but none is the Game Pad "
-                            "(usage_page=1, usage=5). Sensor/audio interfaces don't accept "
-                            "trigger writes. Reconnect the controller.")
+        # Selection: empty list -> wait; lock match -> use it; else first device.
+        if not devices:
             if not self._waiting_hinted:
                 log.info("Waiting for DualSense - retrying every %.0fs", self._reconnect_interval)
                 self._waiting_hinted = True
             return False
+        info = None
+        if self._lock_serial:
+            info = next((d for d in devices
+                         if d.get("serial_number") == self._lock_serial), None)
+        if info is None:
+            info = devices[0]
         try:
             dev = hid.device()
             dev.open_path(info["path"])

@@ -154,6 +154,7 @@ class TriggerTUI(App):
                 enable_startup_pulse=s.enable_startup_pulse,
                 reconnect_interval_s=s.reconnect_interval_s,
                 enable_reconnect=s.enable_reconnect,
+                controller_lock_serial=s.controller_lock_serial,
             )
             self._ds.open()
             self._listener_cm = udplistener.UDPListener(s.udp_host, s.udp_port, s.udp_timeout)

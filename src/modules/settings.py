@@ -97,6 +97,14 @@ class Settings:
     enable_reconnect: bool = False
     reconnect_interval_s: float = 5.0
 
+    # --- Controller selection ---
+    # Lock to a specific DualSense by serial. Empty = auto (first device found).
+    # Soft lock: if the locked controller is missing at connect time, fall back
+    # to first-found rather than refusing to start. hidapi reports different
+    # serials for the same controller on USB vs BT, so a lock is effectively to
+    # a (controller, transport) pair.
+    controller_lock_serial: str = ""
+
     # Whether ZUV should check for updates at launch. Default off so the user
     # isn't prompted every run; toggle on from the top of the System tab to
     # re-enable. The toggle writes a sentinel file the ZUV loader reads on next launch.
