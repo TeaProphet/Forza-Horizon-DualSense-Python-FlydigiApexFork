@@ -26,9 +26,14 @@ def run(ds, listener, s, stop_event=None):
         if stop_event is not None and stop_event.is_set():
             break
         now = time.monotonic()
-        if s.exit_on_game_close and watcher.should_exit():
-            log.info("Game process closed — exiting.")
-            break
+        if s.exit_on_game_close:
+            # MARK: defensive - never let watcher errors kill the loop silently
+            try:
+                if watcher.should_exit():
+                    log.info("Game process closed — exiting.")
+                    break
+            except Exception as e:
+                log.warning("game-close watcher error: %s", e)
 
         pkt, addr = listener.recv_latest()
 
