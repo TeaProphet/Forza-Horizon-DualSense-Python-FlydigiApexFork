@@ -62,8 +62,8 @@ class Settings:
     rev_limit_hold_ms: float = 120.0          # min on-time per trigger
 
     # MARK: R2 wheelspin buzz
-    # Surface-aware buzz when driven wheels overspeed (water halves amp, off-road thumpier).
-    # Frequency is fixed at 100 Hz in code. DO NOT CHANGE that constant.
+    # `wheelspin_amp` is the tarmac reference. Off-road / water amps scale off it
+    # (water 0.5x, dirt 1.5x, gravel 2x). Surface freqs are fixed in code.
     enable_wheelspin_buzz: bool = True
     wheelspin_amp: int = 3
 

@@ -213,15 +213,16 @@ class TriggerAnimations:
         else:
             if max(abs(t[f"tire_combined_slip_{w}"]) for w in wheels) < 1.0:
                 return None
-        # Surface profile: water halves amp, off-road gets a thumpier buzz.
+        # Surface profile: tarmac amp is the reference, others scale off it.
+        amp = s.wheelspin_amp
         if any(t[f"wheel_in_puddle_{w}"] > 0 for w in wheels):
-            return vibrate(100, max(1, s.wheelspin_amp // 2))
+            return vibrate(100, max(1, amp // 2))            # water 0.5x
         rumble = max(abs(t[f"surface_rumble_{w}"]) for w in wheels)
-        if rumble > 0.30:        # gravel / rocks
-            return vibrate(20, 15)
-        if rumble > 0.10:        # dirt / loose tarmac
-            return vibrate(60, 8)
-        return vibrate(100, s.wheelspin_amp)  # tarmac
+        if rumble > 0.30:                                    # gravel / rocks 2x
+            return vibrate(20, min(255, amp * 2))
+        if rumble > 0.10:                                    # dirt / loose tarmac 1.5x
+            return vibrate(60, min(255, int(amp * 1.5)))
+        return vibrate(100, amp)                             # tarmac 1x
 
     def abs_pulse(self, t, s):
         if not s.enable_abs:
