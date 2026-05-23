@@ -18,18 +18,30 @@ STRINGS = {
     "waiting": "待機中",
     "active": "使用中",
     "(none)": "（なし）",
-    "Backend failed: {error}": "バックエンド起動失敗: {error}",
+    "Backend failed: {error}": "バックエンドの起動に失敗しました: {error}",
     "Profile: {name}": "プロファイル: {name}",
     "Active: {name}": "使用中: {name}",
 
+    # --- controls tab (per-trigger effect switches) ---
+    "Shift thump": "シフトショック",
+    "ABS rumble": "ABS 振動",
+    "Static brake wall": "ブレーキの固定ウォール",
+    "Brake stiffness": "ブレーキの硬さ",
+    "Handbrake stiffness bonus": "ハンドブレーキの追加の硬さ",
+    "Redline buzz": "レッドライン振動",
+    "Wheelspin buzz": "ホイールスピン振動",
+    "Idle buzz": "アイドリング振動",
+    "Throttle stiffness": "アクセルの硬さ",
+
     # --- settings tab sections ---
     "Pedal dead zones": "ペダルのデッドゾーン",
-    "Left trigger - Brake force": "左トリガー - ブレーキフォース",
-    "Left trigger - Static wall (optional)": "左トリガー - 静的ウォール（任意）",
-    "Right trigger - Gas force": "右トリガー - アクセルフォース",
+    "Left trigger - Brake force": "左トリガー - ブレーキの強さ",
+    "Left trigger - Static wall (optional)": "左トリガー - 固定ウォール（任意）",
+    "Right trigger - Gas force": "右トリガー - アクセルの強さ",
     "ABS (anti-lock brake) rumble": "ABS（アンチロックブレーキ）振動",
     "Redline (rev limiter) buzz": "レッドライン（レブリミッター）振動",
     "Wheelspin buzz": "ホイールスピン振動",
+    "Idle buzz": "アイドリング振動",
     "Gear shift thump": "シフトショック",
 
     # --- settings tab fields ---
@@ -38,7 +50,7 @@ STRINGS = {
     "Resting stiffness": "待機時の硬さ",
     "Hard-press stiffness": "深押し時の硬さ",
     "Stiffness curve shape": "硬さカーブの形状",
-    "Handbrake extra stiffness": "ハンドブレーキ追加硬度",
+    "Handbrake extra stiffness": "ハンドブレーキの追加の硬さ",
     "Wall position on the trigger": "トリガー上のウォール位置",
     "Wall hardness": "ウォールの硬さ",
     "Only when braking harder than": "ブレーキ強度が次を超えるときのみ",
@@ -47,17 +59,18 @@ STRINGS = {
     "Tire grip sensitivity": "タイヤグリップ感度",
     "Rumble speed (Hz)": "振動の速さ (Hz)",
     "Rumble strength": "振動の強さ",
-    "Fire near redline at": "レッドライン付近で発火",
-    "Buzz speed (Hz)": "ブザー速度 (Hz)",
-    "Buzz strength": "ブザー強度",
-    "Buzz hold time (ms)": "ブザー保持時間 (ms)",
+    "Fire near redline at": "レッドライン付近で発動",
+    "Buzz speed (Hz)": "振動の速さ (Hz)",
+    "Buzz strength": "振動の強さ",
+    "Buzz hold time (ms)": "振動の保持時間 (ms)",
+    "Idle strength": "アイドリングの強さ",
     "Thump speed (Hz)": "ショックの速さ (Hz)",
     "Thump strength": "ショックの強さ",
     "Thump length (ms)": "ショックの長さ (ms)",
 
     # --- settings tab buttons / hints ---
     "Reset to defaults": "デフォルトに戻す",
-    "Click again to confirm reset": "もう一度クリックしてリセットを確認",
+    "Click again to confirm reset": "もう一度クリックしてリセットを確定",
     "In Forza HUD: host 127.0.0.1 (try ::1 if it fails).":
         "Forza HUD で host を 127.0.0.1 に設定（うまくいかなければ ::1 を試す）。",
     "UDP port {port} is in use. Close the other listener or change the port in the System tab.":
@@ -65,15 +78,15 @@ STRINGS = {
 
     # --- system tab sections / fields ---
     "Telemetry (applies on next launch)": "テレメトリ（次回起動時に適用）",
-    "Startup pulse": "起動パルス",
+    "Startup pulse": "起動時の振動",
     "Reconnect": "再接続",
     "Game detection": "ゲーム検出",
     "UDP port": "UDP ポート",
-    "Startup buzz strength": "起動ブザーの強さ",
+    "Startup buzz strength": "起動時の振動の強さ",
     "Auto-reconnect when controller drops": "コントローラー切断時に自動再接続",
-    "Reconnect check interval (s)": "再接続確認間隔 (秒)",
+    "Reconnect check interval (s)": "再接続の確認間隔 (秒)",
     "Auto-exit when the game closes": "ゲーム終了時に自動終了",
-    "Game-watch check interval (s)": "ゲーム監視間隔 (秒)",
+    "Game-watch check interval (s)": "ゲーム監視の確認間隔 (秒)",
 
     # --- system tab controller block ---
     "Controller": "コントローラー",

@@ -22,14 +22,26 @@ STRINGS = {
     "Profile: {name}": "配置文件：{name}",
     "Active: {name}": "当前：{name}",
 
+    # --- controls tab (per-trigger effect switches) ---
+    "Shift thump": "换挡冲击",
+    "ABS rumble": "ABS 震动",
+    "Static brake wall": "刹车静态防护墙",
+    "Brake stiffness": "刹车阻力",
+    "Handbrake stiffness bonus": "手刹额外阻力",
+    "Redline buzz": "红线震动",
+    "Wheelspin buzz": "车轮打滑震动",
+    "Idle buzz": "怠速震动",
+    "Throttle stiffness": "油门阻力",
+
     # --- settings tab sections ---
     "Pedal dead zones": "踏板死区",
     "Left trigger - Brake force": "左扳机 - 刹车力",
     "Left trigger - Static wall (optional)": "左扳机 - 静态防护墙（可选）",
     "Right trigger - Gas force": "右扳机 - 油门力",
     "ABS (anti-lock brake) rumble": "ABS（防抱死刹车）震动",
-    "Redline (rev limiter) buzz": "红线（限速器）震动",
+    "Redline (rev limiter) buzz": "红线（转速限制器）震动",
     "Wheelspin buzz": "车轮打滑震动",
+    "Idle buzz": "怠速震动",
     "Gear shift thump": "换挡冲击",
 
     # --- settings tab fields ---
@@ -47,10 +59,11 @@ STRINGS = {
     "Tire grip sensitivity": "轮胎抓地灵敏度",
     "Rumble speed (Hz)": "震动速度 (Hz)",
     "Rumble strength": "震动强度",
-    "Fire near redline at": "红线附近触发于",
+    "Fire near redline at": "接近红线时触发",
     "Buzz speed (Hz)": "震动速度 (Hz)",
     "Buzz strength": "震动强度",
     "Buzz hold time (ms)": "震动保持时间 (ms)",
+    "Idle strength": "怠速强度",
     "Thump speed (Hz)": "冲击速度 (Hz)",
     "Thump strength": "冲击强度",
     "Thump length (ms)": "冲击时长 (ms)",
@@ -65,7 +78,7 @@ STRINGS = {
 
     # --- system tab sections / fields ---
     "Telemetry (applies on next launch)": "遥测（下次启动生效）",
-    "Startup pulse": "启动脉冲",
+    "Startup pulse": "启动震动",
     "Reconnect": "重新连接",
     "Game detection": "游戏检测",
     "UDP port": "UDP 端口",
