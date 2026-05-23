@@ -6,7 +6,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
-load_dotenv("dev.env")
+load_dotenv("./data/dev.env")
 
 
 from modules import dualsense, forzahorizon, setup_logging, loop
@@ -56,6 +56,11 @@ def run_tui(s: Settings) -> None:
     TriggerTUI(s).run()
 
 
+def run_gui(s: Settings) -> None:
+    from modules.gui import TriggerGUI
+    TriggerGUI(s).run()
+
+
 def _confirm(prompt: str) -> bool:
     try:
         return input(prompt).strip().lower() in ("y", "yes")
@@ -79,7 +84,9 @@ if __name__ == "__main__":
     p.add_argument("--host", default="127.0.0.1", help="UDP bind address")
     p.add_argument("--port", type=int, default=None, help="UDP port")
     p.add_argument("--debug", action="store_true", help="Verbose per-packet logs")
-    p.add_argument("--headless", action="store_true", help="Disable TUI, use console logs")
+    p.add_argument("--headless", action="store_true", help="Disable UI, use console logs")
+    p.add_argument("--gui", action="store_true", help="Use the CustomTkinter GUI instead of the TUI")
+    p.add_argument("--tui", action="store_true", help="Force the Textual TUI (overrides UI env var)")
     args = p.parse_args()
 
     settings = Settings()
@@ -103,4 +110,11 @@ if __name__ == "__main__":
         setup_logging(args.debug)
         run(settings)
     else:
-        run_tui(settings)
+        ui_env = os.environ.get("UI", "").strip().lower()
+        # Precedence: --tui > --gui > UI env var > default (TUI)
+        if args.tui:
+            run_tui(settings)
+        elif args.gui or ui_env == "gui":
+            run_gui(settings)
+        else:
+            run_tui(settings)
