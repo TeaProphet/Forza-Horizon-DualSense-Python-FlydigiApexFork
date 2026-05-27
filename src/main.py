@@ -104,17 +104,11 @@ if __name__ == "__main__":
     if args.headless:
         setup_logging(args.debug)
         run(settings)
+    elif args.tui:
+        run_tui(settings)
+    elif args.gui:
+        run_gui(settings)
+    elif getattr(sys, "frozen", False):
+        run_gui(settings)
     else:
-        ui_env = os.environ.get("UI", "").strip().lower()
-        frozen = getattr(sys, "frozen", False)
-        # Precedence: --tui > --gui > UI env var > GUI if frozen EXE > TUI
-        if args.tui:
-            run_tui(settings)
-        elif args.gui or ui_env == "gui":
-            run_gui(settings)
-        elif ui_env == "tui":
-            run_tui(settings)
-        elif frozen:
-            run_gui(settings)
-        else:
-            run_tui(settings)
+        run_tui(settings)
