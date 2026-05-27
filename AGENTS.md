@@ -67,7 +67,6 @@ Trigger command = `(mode, p1, p2)`:
 ```powershell
 cd src
 uv sync
-$env:FHDS_DEV = "1"      # suppress the "old standalone" startup prompt
 uv run main.py
 ```
 
@@ -105,8 +104,7 @@ Port `5300`.
 ## Env vars
 
 - `IS_ZUV=true` - set automatically by the zuv loader when running the bundle.
-  `main.py` warns + blocks on `[y/N]` if missing (means user is on old standalone flow).
-- `FHDS_DEV=1` - suppresses that warning during dev.
+  Used by the System tab to locate the ZUV cache root for the update sentinel.
 
 ## Conventions
 

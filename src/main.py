@@ -31,6 +31,11 @@ def _excepthook(exc_type, exc, tb):
     log.critical("Unhandled exception", exc_info=(exc_type, exc, tb))
 
 
+def _log_zuv_status() -> None:
+    found = os.environ.get("IS_ZUV", "").lower() == "true"
+    print(f"ZUV: {'detected' if found else 'not detected'}", file=sys.stderr, flush=True)
+
+
 def run(s: Settings) -> None:
     ds = dualsense.DualSense(
         startup_pulse_force=s.startup_pulse_force,
@@ -68,20 +73,6 @@ def _confirm(prompt: str) -> bool:
 
 # MARK: Entry point
 if __name__ == "__main__":
-    if (
-        os.environ.get("IS_ZUV", "").lower() != "true"
-        and not os.environ.get("FHDS_DEV")
-        and not getattr(sys, "frozen", False)
-    ):
-        print(
-            "\n[!] You are running an older standalone version of FH DualSense.\n"
-            "    Please download the latest launcher (win_start.bat / linux_start.sh)\n"
-            "    from: https://github.com/HamzaYslmn/Forza-Horizon-DualSense-Python/releases/latest\n"
-            "    (set FHDS_DEV=1 to suppress this prompt during development)\n",
-            file=sys.stderr, flush=True,
-        )
-        if not _confirm("Continue with this old version anyway? [y/N]: "):
-            sys.exit(0)
     p = argparse.ArgumentParser(description="FH DualSense adaptive triggers (Steam keeps rumble)")
     p.add_argument("--host", default="127.0.0.1", help="UDP bind address")
     p.add_argument("--port", type=int, default=None, help="UDP port")
@@ -107,6 +98,8 @@ if __name__ == "__main__":
     if args.port is not None: settings.udp_port = args.port
 
     sys.excepthook = _excepthook
+
+    _log_zuv_status()
 
     if args.headless:
         setup_logging(args.debug)
