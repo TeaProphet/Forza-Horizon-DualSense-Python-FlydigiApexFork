@@ -340,8 +340,11 @@ class DualSense:
                     mr    = self._motor_right
                     self._dirty = False
 
-                self.dev.write(self._build(left, right, 0, 0, mode="triggers"))
-                self.dev.write(self._build(off(), off(), ml, mr, mode="motors"))
+                if getattr(self._settings, "enable_split_rumble", True):
+                    self.dev.write(self._build(left, right, 0, 0, mode="triggers"))
+                    self.dev.write(self._build(off(), off(), ml, mr, mode="motors"))
+                else:
+                    self.dev.write(self._build(left, right, ml, mr, mode="all"))
 
             except Exception as e:
                 if persistent_mode:
