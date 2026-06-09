@@ -97,17 +97,20 @@ class RumbleEngine:
         mr = int(min(right, max_intensity))
         return ml, mr
 
-def _find_gamepad():
-    devices = hid.enumerate(VENDOR_ID, 0)
-    for d in devices:
-        if (d.get("product_id") in PRODUCT_IDS
-                and d.get("usage_page", 1) == 1
-                and d.get("usage", 5) == 5):
-            return d
-    for d in devices:
-        if d.get("product_id") in PRODUCT_IDS:
-            log.warning("Usage page/usage not found, picking first matching VID/PID: %s", d.get("path"))
-            return d
+def _find_gamepad(retries=10, delay=0.5):
+    for i in range(retries):
+        devices = hid.enumerate(VENDOR_ID, 0)
+        for d in devices:
+            if (d.get("product_id") in PRODUCT_IDS
+                    and d.get("usage_page", 1) == 1
+                    and d.get("usage", 5) == 5):
+                return d
+        for d in devices:
+            if d.get("product_id") in PRODUCT_IDS:
+                log.warning("Usage page/usage not found, picking first matching VID/PID: %s", d.get("path"))
+                return d
+        if i < retries - 1:
+            time.sleep(delay)
     raise RuntimeError("DualSense gamepad not found.")
 
 def _is_bluetooth(info):
@@ -119,9 +122,18 @@ def _is_bluetooth(info):
         path = path.encode()
     return b"BTHENUM" in path.upper()
 
+def _normalize_path(path) -> str:
+    if not path:
+        return ""
+    if isinstance(path, bytes):
+        path = path.decode(errors="ignore")
+    return path.lower().replace("/", "\\")
+
+
 class DualSense:
     def __init__(self, startup_pulse_force: int = 180, enable_startup_pulse: bool = True,
-                 enable_reconnect: bool = False, reconnect_interval_s: float = 5.0):
+                 enable_reconnect: bool = False, reconnect_interval_s: float = 5.0,
+                 settings = None):
         self.dev = None
         self.lay = USB
         self._lock = threading.Lock()
@@ -133,46 +145,34 @@ class DualSense:
         self._thread = None
         self._pulse_force = startup_pulse_force
         self._enable_startup_pulse = enable_startup_pulse
-        # Stored for future use; not yet wired to reconnect logic.
         self._enable_reconnect = enable_reconnect
         self._reconnect_interval_s = reconnect_interval_s
+        self._settings = settings
 
     @property
     def connected(self) -> bool:
         return self.dev is not None and self._running
 
     def open(self):
-        info = _find_gamepad()
-        self.dev = hid.device()
-        self.dev.open_path(info["path"])
-        self.lay = BT if _is_bluetooth(info) else USB
-        self.dev.set_nonblocking(True)
-        log.info("DualSense connected (%s) at %s", "BT" if self.lay["bt"] else "USB", info["path"])
         self._running = True
         self._thread = threading.Thread(target=self._io, daemon=True)
         self._thread.start()
 
-        if self._enable_startup_pulse:
-            # Trigger pulse
-            pulse = rigid(self._pulse_force)
-            self.set(pulse, pulse)
-            time.sleep(0.2)
-            self.set(off(), off())
-            # Motor rumble test - confirms the controller responds to motor bytes
-            log.info("Motor test: sending rumble at intensity 200 for 0.3s...")
-            self._force_motors(200, 200, duration=0.3)
-            log.info("Motor test complete.")
-
     def close(self):
-        if not self.dev:
-            return
-        self.set(off(), off())
-        time.sleep(0.1)
         self._running = False
         if self._thread:
-            self._thread.join(timeout=1.0)
-        self.dev.close()
-        self.dev = None
+            self._thread.join(timeout=1.5)
+            self._thread = None
+        if self.dev:
+            try:
+                self.dev.write(self._build(off(), off(), 0, 0, mode="all"))
+            except Exception:
+                pass
+            try:
+                self.dev.close()
+            except Exception:
+                pass
+            self.dev = None
 
     def _force_motors(self, ml: int, mr: int, duration: float = 0.3):
         """Directly write motor values for testing, bypassing the dirty flag."""
@@ -186,6 +186,14 @@ class DualSense:
             self._dirty = True
             self._forcing = False
 
+    def set_reconnect_enabled(self, enabled: bool):
+        self._enable_reconnect = enabled
+        log.info("DualSense auto-reconnect set to %s", enabled)
+
+    def set_reconnect_interval(self, interval: float):
+        self._reconnect_interval_s = interval
+        log.info("DualSense reconnect interval set to %.1fs", interval)
+
     def set(self, left, right, telemetry: dict | None = None, settings = None):
         ml = mr = 0
         if telemetry is not None:
@@ -197,12 +205,110 @@ class DualSense:
             self._dirty = True
 
     def _io(self):
+        from . import hidhide
+        has_hidhide = hidhide.is_detected()
+        persistent_mode = False
+        has_connected_once = False
+        last_presence_check = 0.0
+
+        # Initialize the set of known device paths for monitoring connections
+        try:
+            known_paths = {d.get("path") for d in hid.enumerate()}
+        except Exception:
+            known_paths = set()
+
         while self._running:
+            if self.dev is None:
+                # Monitor for new HID device connections to cycle emulation trigger
+                try:
+                    current_paths = {d.get("path") for d in hid.enumerate()}
+                    new_paths = current_paths - known_paths
+                    known_paths = current_paths
+                    
+                    if new_paths:
+                        log.info("New HID device detected: cycling emulation trigger...")
+                        from .. import emulation_trigger
+                        emulation_trigger.stop_trigger()
+                        if self._settings:
+                            emulation_trigger.start_trigger(self._settings)
+                        time.sleep(0.5)
+                except Exception as monitor_err:
+                    log.debug("Error monitoring HID devices: %s", monitor_err)
+
+                # Ensure background trigger is started when we are looking/waiting for the controller
+                if self._settings:
+                    try:
+                        from .. import emulation_trigger
+                        emulation_trigger.start_trigger(self._settings)
+                    except Exception as trigger_err:
+                        log.warning("Failed to start emulation trigger in IO loop: %s", trigger_err)
+
+                try:
+                    info = _find_gamepad(retries=1, delay=0.0)
+                    dev = hid.device()
+                    dev.open_path(info["path"])
+                    dev.set_nonblocking(True)
+                    
+                    self.lay = BT if _is_bluetooth(info) else USB
+                    self.dev = dev
+                    self._device_path = info["path"]
+                    last_presence_check = time.monotonic()
+                    
+                    log.info("DualSense connected (%s) at %s", "BT" if self.lay["bt"] else "USB", info["path"])
+                    has_connected_once = True
+                    
+                    if has_hidhide:
+                        persistent_mode = True
+                        log.info("HidHide detected: latched into persistent mode (ignoring read/write errors)")
+
+                    if self._enable_startup_pulse:
+                        pulse = rigid(self._pulse_force)
+                        try:
+                            dev.write(self._build(pulse, pulse, 0, 0, mode="triggers"))
+                            time.sleep(0.2)
+                            dev.write(self._build(off(), off(), 0, 0, mode="triggers"))
+                            log.info("Motor test: sending rumble at intensity 200 for 0.3s...")
+                            dev.write(self._build(off(), off(), 200, 200, mode="motors"))
+                            time.sleep(0.3)
+                            dev.write(self._build(off(), off(), 0, 0, mode="motors"))
+                            log.info("Motor test complete.")
+                        except Exception as write_err:
+                            log.warning("Startup pulse/motor test failed: %s", write_err)
+
+                except Exception:
+                    self.dev = None
+                    if has_connected_once and not self._enable_reconnect:
+                        log.info("Controller disconnected and auto-reconnect is disabled. Stopping trigger thread.")
+                        try:
+                            from .. import emulation_trigger
+                            emulation_trigger.stop_trigger()
+                        except Exception:
+                            pass
+                        self._running = False
+                        break
+                    time.sleep(self._reconnect_interval_s if self._enable_reconnect else 1.0)
+                    continue
+
+            # Connected! Process loop
             try:
                 try:
                     self.dev.read(self.lay["size"])
                 except OSError:
+                    # Ignore read errors as some controllers/configurations do not support reading or raise constant error
                     pass
+
+                # Periodically verify physical presence of the device path
+                now = time.monotonic()
+                if now - last_presence_check > 1.0:
+                    last_presence_check = now
+                    still_present = False
+                    try:
+                        target_path = _normalize_path(self._device_path)
+                        still_present = any(_normalize_path(d.get("path")) == target_path for d in hid.enumerate(VENDOR_ID, 0))
+                    except Exception:
+                        pass
+                    if not still_present:
+                        raise OSError("Controller physically unplugged")
 
                 with self._lock:
                     if not self._dirty:
@@ -217,10 +323,30 @@ class DualSense:
                 self.dev.write(self._build(left, right, 0, 0, mode="triggers"))
                 self.dev.write(self._build(off(), off(), ml, mr, mode="motors"))
 
-            except Exception:
-                log.exception("HID write failed; stopping trigger thread")
-                self._running = False
-                break
+            except Exception as e:
+                if persistent_mode:
+                    time.sleep(0.01)
+                    continue
+                else:
+                    log.warning("HID error: %s", e)
+                    try:
+                        self.dev.close()
+                    except Exception:
+                        pass
+                    self.dev = None
+                    
+                    try:
+                        from .. import emulation_trigger
+                        emulation_trigger.stop_trigger()
+                    except Exception:
+                        pass
+
+                    if not self._enable_reconnect:
+                        log.info("Controller disconnected and auto-reconnect is disabled. Stopping trigger thread.")
+                        self._running = False
+                        break
+                    
+                    time.sleep(self._reconnect_interval_s)
 
     def _build(self, left, right, motor_left: int = 0, motor_right: int = 0, mode: str = "all"):
         L   = self.lay

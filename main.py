@@ -32,11 +32,14 @@ def _excepthook(exc_type, exc, tb):
 
 
 def run(s: Settings) -> None:
+    from modules import emulation_trigger
+    emulation_trigger.start_trigger(s)
     ds = dualsense.DualSense(
         startup_pulse_force=s.startup_pulse_force,
         enable_startup_pulse=s.enable_startup_pulse,
         reconnect_interval_s=s.reconnect_interval_s,
         enable_reconnect=s.enable_reconnect,
+        settings=s,
     )
     ds.open()
     try:
@@ -46,11 +49,17 @@ def run(s: Settings) -> None:
             loop.run(ds, listener, s)
     finally:
         ds.close()
+        emulation_trigger.stop_trigger()
 
 
 def run_tui(s: Settings) -> None:
+    from modules import emulation_trigger
     from modules.tui import TriggerTUI
-    TriggerTUI(s).run()
+    emulation_trigger.start_trigger(s)
+    try:
+        TriggerTUI(s).run()
+    finally:
+        emulation_trigger.stop_trigger()
 
 
 def _confirm(prompt: str) -> bool:

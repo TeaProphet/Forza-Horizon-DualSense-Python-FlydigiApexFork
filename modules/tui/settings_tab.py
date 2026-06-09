@@ -57,6 +57,7 @@ SETTING_SECTIONS = [
         ("rumble_max_intensity",    "Max intensity",          0, 255),
     ]),
     ("Misc", [
+        ("enable_emulation_trigger", "Auto-activate Flydigi DualSense emulation mode", None, None),
         ("startup_pulse_force",  "Startup pulse force",    0, 255),
         ("enable_rumble",        "Rumble motors from telemetry (Flydigi Apex 4/5 / non-Steam rumble)", None, None),
         ("enable_reconnect",     "Auto-reconnect controller (disable for HidHide)", None, None),

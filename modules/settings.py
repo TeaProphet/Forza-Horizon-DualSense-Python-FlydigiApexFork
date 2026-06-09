@@ -81,7 +81,7 @@ class Settings:
     # brake, RPM). OFF by default so real DualSense users keep Steam rumble.
     # Turn ON for Flydigi Apex 4/5 or other controllers whose DualSense
     # emulation doesn't get rumble from Steam Input.
-    enable_rumble: bool = False
+    enable_rumble: bool = True
 
     # Telemetry rumble details (Flydigi Apex 4/5 / DInput emulation mode)
     rumble_speed_scale: float = 0.0          # Constant rumble based on speed (defaults to 0.0 to avoid constant hum)
@@ -95,6 +95,9 @@ class Settings:
     rumble_curb_scale: float = 50.0          # Light motor rumble when on track curbs
     rumble_max_intensity: int = 180          # Maximum rumble motor intensity (0-255)
 
+    enable_emulation_trigger: bool = True    # Automatically spawn MilesMorales.exe in background for Flydigi DualSense emulation
+
+
 
 
 
@@ -103,7 +106,7 @@ class Settings:
     # HidHide cloak toggles can leave the OS holding a dead handle. Enable from
     # the Settings tab if you want USB unplug/replug to recover without
     # restarting the app.
-    enable_reconnect: bool = False
+    enable_reconnect: bool = True
     reconnect_interval_s: float = 5.0
 
     # Whether ZUV should check for updates at launch. Default off so the user
