@@ -62,7 +62,7 @@ def run(ds, listener, s, stop_event=None):
 
         if s.enable_rumble:
             # Motor values change continuously - always send when rumble is on.
-            ds.set(left, right, telemetry=t)
+            ds.set(left, right, telemetry=t, settings=s)
             prev = (left, right)
         elif (left, right) != prev:
             ds.set(left, right)

@@ -79,9 +79,22 @@ class Settings:
 
     # Rumble: drive the main vibration motors from telemetry (speed, slip,
     # brake, RPM). OFF by default so real DualSense users keep Steam rumble.
-    # Turn ON for Flydigi Apex 4 or other controllers whose DualSense
+    # Turn ON for Flydigi Apex 4/5 or other controllers whose DualSense
     # emulation doesn't get rumble from Steam Input.
     enable_rumble: bool = False
+
+    # Telemetry rumble details (Flydigi Apex 4/5 / DInput emulation mode)
+    rumble_speed_scale: float = 0.0          # Constant rumble based on speed (defaults to 0.0 to avoid constant hum)
+    rumble_slip_scale: float = 20.0          # Rumble intensity when tires are slipping
+    rumble_slip_deadzone: float = 0.10       # Ignore tire slip below this threshold (traction loss start)
+    rumble_brake_scale: float = 0.2          # Heavy rumble intensity under braking
+    rumble_rpm_scale: float = 15.0           # Light motor vibration intensity at high engine RPM
+    rumble_rpm_threshold: float = 0.80       # RPM ratio threshold to start engine vibration
+    rumble_surface_scale: float = 40.0       # Heavy motor rumble for off-road/road surface bumps
+    rumble_surface_deadzone: float = 0.05    # Ignore road surface texture below this threshold (filters asphalt hum)
+    rumble_curb_scale: float = 50.0          # Light motor rumble when on track curbs
+    rumble_max_intensity: int = 180          # Maximum rumble motor intensity (0-255)
+
 
 
 

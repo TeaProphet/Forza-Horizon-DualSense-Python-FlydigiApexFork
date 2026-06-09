@@ -19,7 +19,7 @@ PRODUCT_IDS = (0x0CE6, 0x0DF2)  # DualSense, DualSense Edge
 #   0x04 = right trigger
 #   0x08 = left trigger
 #
-# APEX 4 FIX: we always include motor bits (0x01|0x02) so the Apex 4 firmware
+# APEX 4/5 FIX: we always include motor bits (0x01|0x02) so the Apex 4/5 firmware
 # actually activates the vibration motors. 
 TRIG_FLAGS = 0x01 | 0x02 | 0x04 | 0x08
 
@@ -38,43 +38,63 @@ BT  = {"rid": 0x31, "flags": 2, "r": 12, "l": 23, "size": 78, "bt": True,
 # Based on your provided "main (1).py" script logic
 # ---------------------------------------------------------------------------
 class RumbleEngine:
-    SPEED_SCALE: float = 0.20
-    SLIP_SCALE: float = 35.0
-    BRAKE_SCALE: float = 0.25
-    RPM_SCALE: float = 50.0
-    RPM_THRESHOLD: float = 0.85
-    MAX_INTENSITY: int = 180
-
     @classmethod
-    def compute(cls, t: dict) -> tuple[int, int]:
-        # parse_packet already converts speed to km/h
+    def compute(cls, t: dict, s = None) -> tuple[int, int]:
+        speed_scale = s.rumble_speed_scale if s is not None else 0.0
+        slip_scale = s.rumble_slip_scale if s is not None else 20.0
+        slip_deadzone = s.rumble_slip_deadzone if s is not None else 0.10
+        brake_scale = s.rumble_brake_scale if s is not None else 0.2
+        rpm_scale = s.rumble_rpm_scale if s is not None else 15.0
+        rpm_threshold = s.rumble_rpm_threshold if s is not None else 0.80
+        surface_scale = s.rumble_surface_scale if s is not None else 40.0
+        surface_deadzone = s.rumble_surface_deadzone if s is not None else 0.05
+        curb_scale = s.rumble_curb_scale if s is not None else 50.0
+        max_intensity = s.rumble_max_intensity if s is not None else 180
+
         speed_kmh = t.get("speed", 0.0)
         rpm       = t.get("current_engine_rpm", t.get("rpm", 0.0))
         max_rpm   = t.get("engine_max_rpm", t.get("max_rpm", 1.0)) or 1.0
         brake     = t.get("brake", 0)
 
-        slip_keys = [
-            "tire_slip_ratio_front_left", "tire_slip_ratio_front_right",
-            "tire_slip_ratio_rear_left", "tire_slip_ratio_rear_right",
-            "tire_slip_ratio_fl", "tire_slip_ratio_fr",
-            "tire_slip_ratio_rl", "tire_slip_ratio_rr"
-        ]
-        total_slip = sum(abs(t.get(k, 0.0)) for k in slip_keys)
+        # 1. Tire Slip (traction loss / understeer / oversteer)
+        slip_keys = ["tire_slip_ratio_fl", "tire_slip_ratio_fr", "tire_slip_ratio_rl", "tire_slip_ratio_rr"]
+        total_slip = 0.0
+        for k in slip_keys:
+            val = abs(t.get(k, 0.0))
+            if val > slip_deadzone:
+                total_slip += (val - slip_deadzone)
 
+        # 2. Surface Rumble (gravel, dirt, road surface bumps)
+        surface_keys = ["surface_rumble_fl", "surface_rumble_fr", "surface_rumble_rl", "surface_rumble_rr"]
+        total_surface = 0.0
+        for k in surface_keys:
+            val = abs(t.get(k, 0.0))
+            if val > surface_deadzone:
+                total_surface += (val - surface_deadzone)
+
+        # 3. Curb / Rumble Strip detection
+        curb_keys = ["wheel_on_rumble_strip_fl", "wheel_on_rumble_strip_fr", "wheel_on_rumble_strip_rl", "wheel_on_rumble_strip_rr"]
+        total_curb = sum(abs(t.get(k, 0.0)) for k in curb_keys)
+
+        # Heavy (Left) Motor - ABS / braking, rough surfaces, and tire slip
         left = (
-            speed_kmh * cls.SPEED_SCALE
-            + total_slip * cls.SLIP_SCALE
-            + brake * cls.BRAKE_SCALE
+            speed_kmh * speed_scale
+            + total_surface * surface_scale
+            + total_slip * slip_scale
+            + brake * brake_scale
         )
 
+        # Light (Right) Motor - High engine RPM, track curbs, and fine tire slip
         rpm_ratio = rpm / max_rpm
         right = 0.0
-        if rpm_ratio > cls.RPM_THRESHOLD:
-            right = ((rpm_ratio - cls.RPM_THRESHOLD) / (1.0 - cls.RPM_THRESHOLD)) * cls.RPM_SCALE
-        right += total_slip * (cls.SLIP_SCALE * 0.15)
+        if rpm_ratio > rpm_threshold:
+            right = ((rpm_ratio - rpm_threshold) / (1.0 - rpm_threshold)) * rpm_scale
+        
+        right += total_curb * curb_scale
+        right += total_slip * (slip_scale * 0.15)
 
-        ml = int(min(left,  cls.MAX_INTENSITY))
-        mr = int(min(right, cls.MAX_INTENSITY))
+        ml = int(min(left,  max_intensity))
+        mr = int(min(right, max_intensity))
         return ml, mr
 
 def _find_gamepad():
@@ -166,10 +186,10 @@ class DualSense:
             self._dirty = True
             self._forcing = False
 
-    def set(self, left, right, telemetry: dict | None = None):
+    def set(self, left, right, telemetry: dict | None = None, settings = None):
         ml = mr = 0
         if telemetry is not None:
-            ml, mr = RumbleEngine.compute(telemetry)
+            ml, mr = RumbleEngine.compute(telemetry, settings)
         with self._lock:
             self._left, self._right = left, right
             if not self._forcing:
@@ -218,8 +238,8 @@ class DualSense:
             flags = 0x01 | 0x02 | 0x04 | 0x08
 
         buf[L["flags"]] = flags
-        buf[L["flags"] + 1] = 0xF7    # valid_flag1 - critical for rumble on emulated DualSense (Apex 4)
-        buf[L["flags"] + 45] = 255    # led_green - critical for rumble on emulated DualSense (Apex 4)
+        buf[L["flags"] + 1] = 0xF7    # valid_flag1 - critical for rumble on emulated DualSense (Apex 4/5)
+        buf[L["flags"] + 45] = 255    # led_green - critical for rumble on emulated DualSense (Apex 4/5)
 
         mr_val = max(0, min(255, motor_right))
         ml_val = max(0, min(255, motor_left))
