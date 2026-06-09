@@ -2,6 +2,9 @@
 
 This repository is a fork of the original [Forza-Horizon-DualSense-Python](https://github.com/HamzaYslmn/Forza-Horizon-DualSense-Python) project, modified to add full telemetry rumble support for the **Flydigi Apex 4/5** controller in DualSense emulation mode.
 
+> [!WARNING]
+> This is a selfmade fork tested only on the **Flydigi Apex 4** controller running on **Windows 11**. Other models, connection types, or operating systems might work but have not been formally verified.
+
 ---
 
 ## 🛠️ What is Fixed and Added in this Fork

@@ -130,6 +130,26 @@ def _normalize_path(path) -> str:
     return path.lower().replace("/", "\\")
 
 
+def _is_non_dualsense_controller(d: dict) -> bool:
+    vid = d.get("vendor_id")
+    pid = d.get("product_id")
+    # Check if it is a DualSense or DualSense Edge controller
+    if vid == 0x054C and pid in (0x0CE6, 0x0DF2):
+        return False
+    # Check standard controller HID usages
+    usage_page = d.get("usage_page")
+    usage = d.get("usage")
+    if usage_page == 1 and usage in (4, 5):
+        return True
+    # Fallback to string matching on product name
+    prod = d.get("product_string") or ""
+    if isinstance(prod, str):
+        prod_lower = prod.lower()
+        if "controller" in prod_lower or "gamepad" in prod_lower or "flydigi" in prod_lower:
+            return True
+    return False
+
+
 class DualSense:
     def __init__(self, startup_pulse_force: int = 180, enable_startup_pulse: bool = True,
                  enable_reconnect: bool = False, reconnect_interval_s: float = 5.0,
@@ -211,29 +231,29 @@ class DualSense:
         has_connected_once = False
         last_presence_check = 0.0
 
-        # Initialize the set of known device paths for monitoring connections
+        # Initialize the set of known non-DualSense controller paths for monitoring connections
         try:
-            known_paths = {d.get("path") for d in hid.enumerate()}
+            known_controllers = {d.get("path") for d in hid.enumerate() if _is_non_dualsense_controller(d)}
         except Exception:
-            known_paths = set()
+            known_controllers = set()
 
         while self._running:
             if self.dev is None:
-                # Monitor for new HID device connections to cycle emulation trigger
+                # Monitor for new non-DualSense controller connections to cycle emulation trigger
                 try:
-                    current_paths = {d.get("path") for d in hid.enumerate()}
-                    new_paths = current_paths - known_paths
-                    known_paths = current_paths
+                    current_controllers = {d.get("path") for d in hid.enumerate() if _is_non_dualsense_controller(d)}
+                    new_controllers = current_controllers - known_controllers
+                    known_controllers = current_controllers
                     
-                    if new_paths:
-                        log.info("New HID device detected: cycling emulation trigger...")
+                    if new_controllers:
+                        log.info("New non-DualSense controller detected: cycling emulation trigger...")
                         from .. import emulation_trigger
                         emulation_trigger.stop_trigger()
                         if self._settings:
                             emulation_trigger.start_trigger(self._settings)
                         time.sleep(0.5)
                 except Exception as monitor_err:
-                    log.debug("Error monitoring HID devices: %s", monitor_err)
+                    log.debug("Error monitoring controllers: %s", monitor_err)
 
                 # Ensure background trigger is started when we are looking/waiting for the controller
                 if self._settings:
