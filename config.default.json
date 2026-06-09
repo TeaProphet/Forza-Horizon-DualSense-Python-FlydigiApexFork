@@ -1,0 +1,231 @@
+{
+  "actions": [
+    {
+      "name": "换挡",
+      "duration": 0.05,
+      "trigger": {
+        "side": "right",
+        "mode": 2,
+        "params": [50, 1, 150, 1]
+      },
+      "afterTrigger": {
+        "side": "right",
+        "mode": 1,
+        "params": [0, 1, 0, 0]
+      },
+      "condition": "and",
+      "filters": [
+        { "key": "Gear", "changed": true },
+        { "key": "Accelerator", "op": ">", "value": "0" }
+      ]
+    },
+    {
+      "name": "+普通刹车",
+      "trigger": {
+        "side": "left",
+        "mode": 1,
+        "params": [0, 1, 0, 0]
+      },
+      "condition": "and",
+      "filters": [
+        { "key": "Speed", "op": "<", "value": "25" },
+        { "key": "Brake", "changed": true },
+        { "key": "Gear", "op": "!=", "value": "0" }
+      ]
+    },
+    {
+      "name": "+高速刹车",
+      "trigger": {
+        "side": "left",
+        "mode": 2,
+        "params": [0, 1, 55, 50]
+      },
+      "condition": "and",
+      "filters": [
+        { "key": "Speed", "op": ">", "value": "25" },
+        { "key": "Brake", "changed": true }
+      ]
+    },
+    {
+      "name": "手动档倒车",
+      "trigger": {
+        "side": "right",
+        "mode": 2,
+        "params": [0, 1, 55, 70]
+      },
+      "condition": "and",
+      "filters": [
+        { "key": "TireSlipRatioRearRight", "op": "<", "value": "-0.8" },
+        { "key": "Gear", "op": "=", "value": "0" }
+      ]
+    },
+    {
+      "name": "自动档倒车",
+      "trigger": {
+        "side": "left",
+        "mode": 2,
+        "params": [0, 1, 55, 70]
+      },
+      "condition": "and",
+      "filters": [
+        { "key": "TireSlipRatioFrontLeft", "op": "<", "value": "-0.6" },
+        { "key": "Gear", "op": "=", "value": "0" }
+      ]
+    },
+    {
+      "name": "自动档倒车",
+      "trigger": {
+        "side": "left",
+        "mode": 2,
+        "params": [0, 1, 55, 70]
+      },
+      "condition": "and",
+      "filters": [
+        { "key": "TireSlipRatioFrontRight", "op": "<", "value": "-0.6" },
+        { "key": "Gear", "op": "=", "value": "0" }
+      ]
+    },
+    {
+      "name": "自动档倒车",
+      "trigger": {
+        "side": "left",
+        "mode": 2,
+        "params": [0, 1, 55, 70]
+      },
+      "condition": "and",
+      "filters": [
+        { "key": "TireSlipRatioRearLeft", "op": "<", "value": "-0.6" },
+        { "key": "Gear", "op": "=", "value": "0" }
+      ]
+    },
+    {
+      "name": "自动档倒车",
+      "trigger": {
+        "side": "left",
+        "mode": 2,
+        "params": [0, 1, 55, 70]
+      },
+      "condition": "and",
+      "filters": [
+        { "key": "TireSlipRatioRearRight", "op": "<", "value": "-0.6" },
+        { "key": "Gear", "op": "=", "value": "0" }
+      ]
+    },
+    {
+      "name": "手动档倒车",
+      "trigger": {
+        "side": "right",
+        "mode": 2,
+        "params": [0, 1, 55, 70]
+      },
+      "condition": "and",
+      "filters": [
+        { "key": "TireSlipRatioFrontLeft", "op": "<", "value": "-0.8" },
+        { "key": "Gear", "op": "=", "value": "0" }
+      ]
+    },
+    {
+      "name": "手动档倒车",
+      "trigger": {
+        "side": "right",
+        "mode": 2,
+        "params": [0, 1, 55, 70]
+      },
+      "condition": "and",
+      "filters": [
+        { "key": "TireSlipRatioFrontRight", "op": "<", "value": "-0.8" },
+        { "key": "Gear", "op": "=", "value": "0" }
+      ]
+    },
+    {
+      "name": "手动档倒车",
+      "trigger": {
+        "side": "right",
+        "mode": 2,
+        "params": [0, 1, 55, 70]
+      },
+      "condition": "and",
+      "filters": [
+        { "key": "TireSlipRatioRearLeft", "op": "<", "value": "-0.8" },
+        { "key": "Gear", "op": "=", "value": "0" }
+      ]
+    },
+    {
+      "name": "手动档倒车刹车",
+      "trigger": {
+        "side": "left",
+        "mode": 1,
+        "params": [0, 1, 0, 0]
+      },
+      "condition": "and",
+      "filters": [
+        { "key": "Brake", "changed": true },
+        { "key": "Gear", "op": "=", "value": "0" }
+      ]
+    },
+    {
+      "name": "失去抓地力",
+      "trigger": {
+        "side": "right",
+        "mode": 2,
+        "params": [0, 1, 100, 60]
+      },
+      "condition": "or",
+      "filters": [
+        { "key": "TireSlipRatioFrontLeft", "op": ">", "value": "0.5" },
+        { "key": "TireSlipRatioFrontLeft", "op": "<", "value": "-0.5" },
+        { "key": "TireSlipRatioFrontRight", "op": ">", "value": "0.5" },
+        { "key": "TireSlipRatioFrontRight", "op": "<", "value": "-0.5" },
+        { "key": "TireSlipRatioRearLeft", "op": ">", "value": "0.5" },
+        { "key": "TireSlipRatioRearLeft", "op": "<", "value": "-0.5" },
+        { "key": "TireSlipRatioRearRight", "op": ">", "value": "0.5" },
+        { "key": "TireSlipRatioRearRight", "op": "<", "value": "-0.5" }
+      ]
+    },
+    {
+      "name": "恢复抓地力",
+      "duration": 4,
+      "afterTrigger": {
+        "side": "right",
+        "mode": 1,
+        "params": [0, 1, 0, 0]
+      },
+      "trigger": {
+        "side": "right",
+        "mode": 1,
+        "params": [0, 1, 0, 0]
+      },
+      "condition": "and",
+      "filters": [
+        { "key": "TireSlipRatioFrontLeft", "op": "<", "value": "0.3" },
+        { "key": "TireSlipRatioFrontLeft", "op": ">", "value": "-0.3" },
+        { "key": "TireSlipRatioFrontRight", "op": "<", "value": "0.3" },
+        { "key": "TireSlipRatioFrontRight", "op": ">", "value": "-0.3" },
+        { "key": "TireSlipRatioRearLeft", "op": "<", "value": "0.3" },
+        { "key": "TireSlipRatioRearLeft", "op": ">", "value": "-0.3" },
+        { "key": "TireSlipRatioRearRight", "op": "<", "value": "0.3" },
+        { "key": "TireSlipRatioRearRight", "op": ">", "value": "-0.3" }
+      ]
+    },
+    {
+      "name": "恢复抓地力",
+      "trigger": {
+        "side": "left",
+        "mode": 1,
+        "params": [0, 1, 0, 0]
+      },
+      "condition": "and",
+      "filters": [
+        { "key": "TireSlipRatioFrontLeft", "op": "<", "value": "0.5" },
+        { "key": "TireSlipRatioFrontLeft", "op": ">", "value": "-0.5" },
+        { "key": "TireSlipRatioFrontRight", "op": "<", "value": "0.5" },
+        { "key": "TireSlipRatioFrontRight", "op": ">", "value": "-0.5" },
+        { "key": "TireSlipRatioRearLeft", "op": "<", "value": "0.5" },
+        { "key": "TireSlipRatioRearLeft", "op": ">", "value": "-0.5" },
+        { "key": "TireSlipRatioRearRight", "op": "<", "value": "0.5" },
+        { "key": "TireSlipRatioRearRight", "op": ">", "value": "-0.5" },
+        { "key": "Gear", "op": "=", "value": "0" }
+      ]
+    }
+  ]
+}

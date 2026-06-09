@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Environments and Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+*.bak/
+
+# Local runtime data and user preferences
+data/
+crash.log
+user_preferences.json
+
+# IDEs
+.vscode/
+.idea/
+.project
+.pydevproject
+.settings/

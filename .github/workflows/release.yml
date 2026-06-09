@@ -1,0 +1,84 @@
+name: release
+
+# Triggers:
+#   - push to dev with "prerelease" in commit msg -> rolling DEV_TAG prerelease
+#   - push to main with "release vX.Y.Z" in commit msg -> stable vX.Y.Z
+#   - push of tag vX.Y.Z -> stable vX.Y.Z
+#   - manual workflow_dispatch -> rolling DEV_TAG prerelease
+
+on:
+  push:
+    branches: [main, dev]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  DEV_TAG: v999.0.0
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Parse trigger
+        id: parse
+        run: |
+          set -e
+          tag=""; prerelease=""; title=""
+          msg=$(git log -1 --pretty=%s)
+
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="${GITHUB_REF#refs/tags/}"; prerelease=false; title="$tag"
+          elif [[ "$GITHUB_REF" == "refs/heads/main" && "$msg" =~ release[[:space:]]+(v[0-9]+\.[0-9]+\.[0-9]+) ]]; then
+            tag="${BASH_REMATCH[1]}"; prerelease=false; title="$tag"
+          elif [[ "$GITHUB_REF" == "refs/heads/dev" && "$msg" == *prerelease* ]] \
+            || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            tag="$DEV_TAG"; prerelease=true; title="🧪 dev - Rolling Test Build"
+          fi
+
+          echo "tag=$tag"               >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "title=$title"           >> "$GITHUB_OUTPUT"
+
+      - name: Move rolling tag
+        if: steps.parse.outputs.tag && steps.parse.outputs.prerelease == 'true'
+        env:
+          TAG: ${{ steps.parse.outputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete "$TAG" --yes --cleanup-tag=false 2>/dev/null || true
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -f "$TAG"
+          git push origin "refs/tags/$TAG" --force
+
+      - uses: astral-sh/setup-uv@v5
+        if: steps.parse.outputs.tag
+
+      - name: Build bundle
+        if: steps.parse.outputs.tag
+        run: |
+          mkdir -p release
+          uvx zuv build src -o release/fhds.zuv.py \
+            --update-repo HamzaYslmn/Forza-Horizon-DualSense-Python
+          cp win_start.bat linux_start.sh release/
+
+      - uses: softprops/action-gh-release@v2
+        if: steps.parse.outputs.tag
+        with:
+          tag_name: ${{ steps.parse.outputs.tag }}
+          name: ${{ steps.parse.outputs.title }}
+          prerelease: ${{ steps.parse.outputs.prerelease == 'true' }}
+          generate_release_notes: true
+          body: |
+            > **Heads up**
+            > - The bundle self-updates each run from this release. Keep `fhds.zuv.py` next to your launcher script.
+            > - Settings live in `data/user_preferences.json` next to the launcher and survive updates.
+            > - Linux: launcher offers to install `70-dualsense.rules` to `/etc/udev/rules.d/` once.
+            > - Prerelease channel: run `uv run fhds.zuv.py --prerelease` to track rolling test builds.
+          files: release/*
