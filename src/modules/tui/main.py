@@ -73,7 +73,7 @@ class TriggerTUI(App):
     ]
     HORIZONTAL_BREAKPOINTS = [(0, "-narrow"), (80, "-normal"), (120, "-wide")]
     SPONSOR_URL = "https://github.com/sponsors/HamzaYslmn"
-    CHANGELOG_URL = "https://github.com/HamzaYslmn/Forza-Horizon-DualSense-Python/releases/latest"
+    CHANGELOG_URL = "https://github.com/TeaProphet/Forza-Horizon-DualSense-Python-FlydigiApexFork/releases/latest"
 
     def __init__(self, settings):
         super().__init__()

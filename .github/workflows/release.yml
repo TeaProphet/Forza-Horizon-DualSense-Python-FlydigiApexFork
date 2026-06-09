@@ -8,7 +8,7 @@ name: release
 
 on:
   push:
-    branches: [main, dev]
+    branches: [master, dev]
     tags: ["v*.*.*"]
   workflow_dispatch:
 
@@ -34,7 +34,7 @@ jobs:
 
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             tag="${GITHUB_REF#refs/tags/}"; prerelease=false; title="$tag"
-          elif [[ "$GITHUB_REF" == "refs/heads/main" && "$msg" =~ release[[:space:]]+(v[0-9]+\.[0-9]+\.[0-9]+) ]]; then
+          elif [[ "$GITHUB_REF" == "refs/heads/master" && "$msg" =~ release[[:space:]]+(v[0-9]+\.[0-9]+\.[0-9]+) ]]; then
             tag="${BASH_REMATCH[1]}"; prerelease=false; title="$tag"
           elif [[ "$GITHUB_REF" == "refs/heads/dev" && "$msg" == *prerelease* ]] \
             || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -65,8 +65,8 @@ jobs:
         run: |
           mkdir -p release
           uvx zuv build src -o release/fhds.zuv.py \
-            --update-repo HamzaYslmn/Forza-Horizon-DualSense-Python
-          cp win_start.bat linux_start.sh release/
+            --update-repo TeaProphet/Forza-Horizon-DualSense-Python-FlydigiApexFork
+          cp win_start.bat linux_start.sh build_and_start.bat release/
 
       - uses: softprops/action-gh-release@v2
         if: steps.parse.outputs.tag

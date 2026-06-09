@@ -50,7 +50,7 @@ fi
 # Linux only: install DualSense udev rule once (needs sudo). Pulled from repo
 # because /etc/udev is system-wide and can't live in the bundle.
 RULE_DST="/etc/udev/rules.d/70-dualsense.rules"
-RULE_URL="https://raw.githubusercontent.com/$REPO/main/packaging/linux/70-dualsense.rules"
+RULE_URL="https://raw.githubusercontent.com/$REPO/master/packaging/linux/70-dualsense.rules"
 if [ "$(uname -s)" = "Linux" ] && [ ! -f "$RULE_DST" ]; then
     read -r -p "Install DualSense udev rule (sudo)? [Y/n] " ans
     case "${ans:-Y}" in [Nn]*) ;; *)

@@ -75,7 +75,7 @@ if __name__ == "__main__":
         print(
             "\n[!] You are running an older standalone version of FH DualSense.\n"
             "    Please download the latest launcher (win_start.bat / linux_start.sh)\n"
-            "    from: https://github.com/HamzaYslmn/Forza-Horizon-DualSense-Python/releases/latest\n"
+            "    from: https://github.com/TeaProphet/Forza-Horizon-DualSense-Python-FlydigiApexFork/releases/latest\n"
             "    (set FHDS_DEV=1 to suppress this prompt during development)\n",
             file=sys.stderr, flush=True,
         )
