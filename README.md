@@ -21,7 +21,7 @@ This repository is a fork of the original [Forza-Horizon-DualSense-Python](https
 Flydigi Space Station requires a supported game to be running (like *Marvel's Spider-Man: Miles Morales*) to activate the controller's DualSense emulation mode. 
 
 **This project automates this process entirely!** 
-When you launch the app, it automatically copies a tiny, safe system executable into a dummy process named `MilesMorales.exe` in the background. This tricks Flydigi Space Station into immediately enabling DualSense emulation. When the app exits, the dummy background process is automatically cleaned up and closed. 
+When you launch the app, it automatically copies a tiny, safe system executable into a dummy process named `MilesMorales.exe` in the background. This is a trick to deceive Flydigi Space Station into immediately enabling DualSense emulation mode. When the app exits, the dummy background process is automatically cleaned up and closed. 
 
 No manual steps, renaming, or separate `.exe` launches are required! (You can disable this behavior anytime by toggling `Auto-activate Flydigi DualSense emulation mode` off in the Settings tab).
 
@@ -43,7 +43,7 @@ In Forza Horizon, open **Settings -> HUD and Gameplay** and scroll to the bottom
 - Windows 10/11 or Linux.
 - A Flydigi Apex 4/5 controller connected.
 - **Flydigi Space Station 3/4** must be started before launching the utility.
-- Inside Flydigi Space Station, navigate to **Adaptive Trigger** -> select **Marvel's Spider-Man: Miles Morales** -> set **Adaptive** to **ON**.
+- Inside Flydigi Space Station, navigate to **Adaptive Trigger** -> select **Marvel's Spider-Man: Miles Morales** -> change the trigger mode to **DS Mode (DualSense Mode)** -> set **Adaptive** to **ON**.
 
 ### How to Run (Using the Launcher)
 1. Download this repository or place `win_start.bat` (Windows) / `linux_start.sh` (Linux) in your folder.
