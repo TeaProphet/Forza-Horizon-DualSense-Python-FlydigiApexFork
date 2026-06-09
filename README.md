@@ -41,7 +41,9 @@ In Forza Horizon, open **Settings -> HUD and Gameplay** and scroll to the bottom
 
 ### Prerequisites
 - Windows 10/11 or Linux.
-- A Flydigi Apex 4/5 controller connected in DualSense emulation mode (via USB).
+- A Flydigi Apex 4/5 controller connected (via USB).
+- **Flydigi Space Station 3/4** must be started before launching the utility.
+- Inside Flydigi Space Station, navigate to **Adaptive Trigger** -> select **Marvel's Spider-Man: Miles Morales** -> set **Adaptive** to **ON**.
 
 ### How to Run (Using the Launcher)
 1. Download this repository or place `win_start.bat` (Windows) / `linux_start.sh` (Linux) in your folder.
