@@ -159,8 +159,32 @@ class TriggerTUI(App):
             self._thread = threading.Thread(target=self._run_loop, daemon=True)
             self._thread.start()
         except Exception as exc:
-            log.exception("Backend startup failed")
+            import errno
+            is_addr_in_use = False
+            if isinstance(exc, OSError):
+                if hasattr(exc, "errno") and exc.errno == errno.EADDRINUSE:
+                    is_addr_in_use = True
+                elif sys.platform == "win32" and hasattr(exc, "winerror") and exc.winerror == 10048:
+                    is_addr_in_use = True
+
+            if is_addr_in_use:
+                log.error("Port %d is already in use. Is another instance of FH DualSense running?", s.udp_port)
+            else:
+                log.exception("Backend startup failed")
+
             self.query_one("#status", Static).update(f"Backend failed: {exc}")
+            if self._ds:
+                try:
+                    self._ds.close()
+                except Exception:
+                    pass
+                self._ds = None
+            if self._listener_cm:
+                try:
+                    self._listener_cm.__exit__(None, None, None)
+                except Exception:
+                    pass
+                self._listener_cm = None
 
     def _run_loop(self):
         try:

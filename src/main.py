@@ -43,10 +43,28 @@ def run(s: Settings) -> None:
     )
     ds.open()
     try:
-        with udplistener.UDPListener(s.udp_host, s.udp_port, s.udp_timeout) as listener:
+        try:
+            listener_cm = udplistener.UDPListener(s.udp_host, s.udp_port, s.udp_timeout)
+            listener = listener_cm.__enter__()
+        except OSError as exc:
+            import errno
+            is_addr_in_use = False
+            if hasattr(exc, "errno") and exc.errno == errno.EADDRINUSE:
+                is_addr_in_use = True
+            elif sys.platform == "win32" and hasattr(exc, "winerror") and exc.winerror == 10048:
+                is_addr_in_use = True
+
+            if is_addr_in_use:
+                log.error("Port %d is already in use. Is another instance of FH DualSense running?", s.udp_port)
+                sys.exit(1)
+            raise
+
+        try:
             log.info("Listening on %s:%d | Ctrl+C to quit", s.udp_host, s.udp_port)
             log.info("  In game: HUD & Gameplay -> Data Out: ON, IP 127.0.0.1, Port %d", s.udp_port)
             loop.run(ds, listener, s)
+        finally:
+            listener_cm.__exit__(None, None, None)
     finally:
         ds.close()
         emulation_trigger.stop_trigger()
