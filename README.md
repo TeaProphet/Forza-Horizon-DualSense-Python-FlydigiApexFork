@@ -58,3 +58,9 @@ If you prefer to run the raw Python files directly:
    uv sync
    uv run main.py
    ```
+
+---
+
+## 📄 License
+
+This project is licensed under the [GNU Affero General Public License v3.0](LICENSE).

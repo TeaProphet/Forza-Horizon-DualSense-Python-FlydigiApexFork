@@ -58,3 +58,9 @@ Flydigi Space Station требует запуска поддерживаемой
    uv sync
    uv run main.py
    ```
+
+---
+
+## 📄 Лицензия
+
+Этот проект распространяется под лицензией [GNU Affero General Public License v3.0](LICENSE).
