@@ -41,7 +41,7 @@ Flydigi Space Station требует запуска поддерживаемой
 
 ### Системные требования
 - Windows 10/11 или Linux.
-- Контроллер Flydigi Apex 4/5, подключенный (по USB).
+- Подключенный контроллер Flydigi Apex 4/5.
 - Перед запуском утилиты необходимо запустить **Flydigi Space Station 3/4**.
 - Внутри Flydigi Space Station перейдите в раздел **Adaptive Trigger (Адаптивные триггеры)** -> выберите профиль **Marvel's Spider-Man: Miles Morales** -> установите режим **Adaptive (Адаптивный)** в положение **ON (ВКЛ)**.
 
