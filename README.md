@@ -45,10 +45,10 @@ In Forza Horizon, open **Settings -> HUD and Gameplay** and scroll to the bottom
 - **Flydigi Space Station 3/4** must be started before launching the utility.
 - Inside Flydigi Space Station, navigate to **Adaptive Trigger** -> select **Marvel's Spider-Man: Miles Morales** -> change the trigger mode to **DS Mode (DualSense Mode)** -> set **Adaptive** to **ON**.
 
-### How to Run (Using the Launcher)
-1. Download this repository or place `win_start.bat` (Windows) / `linux_start.sh` (Linux) in your folder.
-2. Double-click **`win_start.bat`** (or run `bash linux_start.sh` on Linux).
-3. The launcher will automatically download the built bundle (`app/fhds.zuv.py`), install the `uv` package manager if missing, and boot the TUI interface.
+### How to Run
+1. Go to the [Releases Page](https://github.com/TeaProphet/Forza-Horizon-DualSense-Python-FlydigiApexFork/releases/latest) and download `win_start.bat` (Windows) or `linux_start.sh` (Linux).
+2. Run the script: double-click `win_start.bat` on Windows, or run `bash linux_start.sh` on Linux.
+3. The script will automatically download the latest precompiled bundle (`app/fhds.zuv.py`), install the `uv` package manager if missing, and start the application.
 
 ### Running from Source (For Developers)
 If you prefer to run the raw Python files directly:
