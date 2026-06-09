@@ -55,7 +55,7 @@ SETTING_SECTIONS = [
         ("rumble_surface_deadzone", "Surface deadzone",       0.0, 1.0),
         ("rumble_curb_scale",       "Curb/track strip scale", 0.0, 255.0),
         ("rumble_max_intensity",    "Max intensity",          0, 255),
-        ("enable_split_rumble",     "Split HID reports (If you have 2 controllers displayed in Steam - enable it, else - disable)", None, None),
+        ("enable_split_rumble",     "Split HID reports (optimized for Flydigi Apex 4)", None, None),
     ]),
     ("Misc", [
         ("enable_emulation_trigger", "Auto-activate Flydigi DualSense emulation mode", None, None),

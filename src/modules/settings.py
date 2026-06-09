@@ -94,7 +94,7 @@ class Settings:
     rumble_surface_deadzone: float = 0.05    # Ignore road surface texture below this threshold (filters asphalt hum)
     rumble_curb_scale: float = 50.0          # Light motor rumble when on track curbs
     rumble_max_intensity: int = 180          # Maximum rumble motor intensity (0-255)
-    enable_split_rumble: bool = True         # Split HID reports (If you have 2 controllers displayed in Steam - enable it, else - disable)
+    enable_split_rumble: bool = True         # Split HID reports (optimized for Flydigi Apex 4)
 
     enable_emulation_trigger: bool = True    # Automatically spawn MilesMorales.exe in background for Flydigi DualSense emulation
 
