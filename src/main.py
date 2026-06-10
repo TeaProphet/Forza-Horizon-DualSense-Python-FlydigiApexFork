@@ -74,9 +74,11 @@ def run_gui(s: Settings) -> None:
 
 
 def _confirm(prompt: str) -> bool:
+    if not sys.stdin or not hasattr(sys.stdin, "readline"):
+        return False
     try:
         return input(prompt).strip().lower() in ("y", "yes")
-    except (EOFError, KeyboardInterrupt):
+    except (EOFError, KeyboardInterrupt, RuntimeError, OSError):
         return False
 
 
