@@ -51,7 +51,6 @@ In Forza Horizon, open **Settings -> HUD and Gameplay** and scroll to the bottom
 > To get the rumble working on the **Flydigi Apex 5**, you must:
 > 1. Uninstall your current Flydigi Space Station 4 version.
 > 2. Download and install version **4.1.2.17** (the last version that supports rumble): [Download Flydigi Space Station 4.1.2.17](https://tencent-android.cdn.flydigi.com/PC/SpaceStation4.0/Flydigi%20Space%20Station_setup_4.1.2.17.exe).
-> 3. Turn **OFF** the `Split HID reports` setting in the TUI Settings tab.
 > You can verify your controller's rumble and adaptive triggers on [ds.daidr.me](https://ds.daidr.me).
 
 ### How to Run
@@ -67,6 +66,13 @@ If you prefer to run the raw Python files directly:
    uv sync
    uv run main.py
    ```
+
+---
+
+## 🔍 Troubleshooting
+
+If the controller connects but rumble/vibration is not working (either in the game or when clicking "Test Rumble" in the Settings tab):
+- Try toggling the **`Split HID reports`** switch in the Settings tab of the TUI (some controllers or firmware versions require this setting to be turned **OFF** to receive rumble updates).
 
 ---
 
