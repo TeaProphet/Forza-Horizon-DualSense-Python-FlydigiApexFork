@@ -5,21 +5,26 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Label, Switch
 
-from modules import preferences
+from lang import t
+from modules.config import preferences
 
 log = logging.getLogger("fhds")
 
+# Listed highest priority first, matching the Controller's effect precedence.
 TRIGGER_CONTROLS = [
     ("L2", [
-        ("enable_brake_resistance", "Brake stiffness"),
-        ("enable_handbrake_bonus",  "Handbrake stiffness bonus"),
-        ("enable_abs",              "ABS rumble"),
-        ("enable_gear_shift_brake", "Shift thump"),
+        ("enable_gear_shift_brake",  "Shift thump"),
+        ("enable_abs",               "ABS rumble"),
+        ("enable_brake_static_wall", "Static brake wall"),
+        ("enable_brake_resistance",  "Brake stiffness"),
+        ("enable_handbrake_bonus",   "Handbrake stiffness bonus"),
     ]),
     ("R2", [
-        ("enable_throttle_resistance", "Throttle stiffness"),
-        ("enable_rev_limiter",         "Redline buzz"),
         ("enable_gear_shift",          "Shift thump"),
+        ("enable_rev_limiter",         "Redline buzz"),
+        ("enable_wheelspin_buzz",      "Wheelspin buzz"),
+        ("enable_idle_buzz",           "Idle buzz"),
+        ("enable_throttle_resistance", "Throttle stiffness"),
     ]),
 ]
 
@@ -49,9 +54,12 @@ class ControlsTab(VerticalScroll):
                     for attr, label in toggles:
                         with Horizontal(classes="row"):
                             yield Switch(value=getattr(self.settings, attr), id=attr)
-                            yield Label(label)
+                            yield Label(t(label))
 
     def on_switch_changed(self, event: Switch.Changed):
+        # MARK: ignore events fired by programmatic widget refresh (profile/reset)
+        if getattr(self.app, "_refreshing", False):
+            return
         attr = event.switch.id
         if attr and hasattr(self.settings, attr):
             setattr(self.settings, attr, event.value)

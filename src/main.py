@@ -4,25 +4,25 @@ import os
 import sys
 import traceback
 from datetime import datetime
-from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv("./dev.env")
 
-from modules import dualsense, udplistener, setup_logging, loop
-from modules import preferences
-from modules.settings import Settings
+
+from modules import forzahorizon, make_backend, setup_logging, loop
+from modules.config import paths, preferences, Settings
 
 log = logging.getLogger("fhds")
 
 # MARK: Crash log - only written on unhandled exceptions
-_DATA = Path(__file__).resolve().parent / "data"
-CRASH_LOG = _DATA / "crash.log"
+CRASH_LOG = paths.DATA / "crash.log"
 
 
 def _excepthook(exc_type, exc, tb):
     if issubclass(exc_type, KeyboardInterrupt):
-        sys.__excepthook__(exc_type, exc, tb)
+        print("\nInterrupted.", file=sys.stderr)
         return
     try:
-        _DATA.mkdir(parents=True, exist_ok=True)
+        paths.DATA.mkdir(parents=True, exist_ok=True)
         with open(CRASH_LOG, "w", encoding="utf-8") as f:
             f.write(f"Crash at {datetime.now():%Y-%m-%d %H:%M:%S}\n\n")
             traceback.print_exception(exc_type, exc, tb, file=f)
@@ -31,40 +31,23 @@ def _excepthook(exc_type, exc, tb):
     log.critical("Unhandled exception", exc_info=(exc_type, exc, tb))
 
 
+def _log_zuv_status() -> None:
+    found = os.environ.get("IS_ZUV", "").lower() == "true"
+    print(f"ZUV: {'detected' if found else 'not detected'}", file=sys.stderr, flush=True)
+
+
 def run(s: Settings) -> None:
     from modules import emulation_trigger
     emulation_trigger.start_trigger(s)
-    ds = dualsense.DualSense(
-        startup_pulse_force=s.startup_pulse_force,
-        enable_startup_pulse=s.enable_startup_pulse,
-        reconnect_interval_s=s.reconnect_interval_s,
-        enable_reconnect=s.enable_reconnect,
-        settings=s,
-    )
+    ds = make_backend(s, s.enable_startup_pulse)
     ds.open()
     try:
-        try:
-            listener_cm = udplistener.UDPListener(s.udp_host, s.udp_port, s.udp_timeout)
-            listener = listener_cm.__enter__()
-        except OSError as exc:
-            import errno
-            is_addr_in_use = False
-            if hasattr(exc, "errno") and exc.errno == errno.EADDRINUSE:
-                is_addr_in_use = True
-            elif sys.platform == "win32" and hasattr(exc, "winerror") and exc.winerror == 10048:
-                is_addr_in_use = True
-
-            if is_addr_in_use:
-                log.error("Port %d is already in use. Is another instance of FH DualSense running?", s.udp_port)
-                sys.exit(1)
-            raise
-
-        try:
+        with forzahorizon.UDPListener(s.udp_host, s.udp_port, s.udp_timeout) as listener:
             log.info("Listening on %s:%d | Ctrl+C to quit", s.udp_host, s.udp_port)
             log.info("  In game: HUD & Gameplay -> Data Out: ON, IP 127.0.0.1, Port %d", s.udp_port)
+            if s.use_dsx:
+                log.info("  DSX mode: sending triggers to %s:%d", s.dsx_host, s.dsx_port)
             loop.run(ds, listener, s)
-        finally:
-            listener_cm.__exit__(None, None, None)
     finally:
         ds.close()
         emulation_trigger.stop_trigger()
@@ -76,6 +59,16 @@ def run_tui(s: Settings) -> None:
     emulation_trigger.start_trigger(s)
     try:
         TriggerTUI(s).run()
+    finally:
+        emulation_trigger.stop_trigger()
+
+
+def run_gui(s: Settings) -> None:
+    from modules import emulation_trigger
+    from modules.gui import TriggerGUI
+    emulation_trigger.start_trigger(s)
+    try:
+        TriggerGUI(s).run()
     finally:
         emulation_trigger.stop_trigger()
 
@@ -99,11 +92,14 @@ if __name__ == "__main__":
         )
         if not _confirm("Continue with this old version anyway? [y/N]: "):
             sys.exit(0)
+            
     p = argparse.ArgumentParser(description="FH DualSense adaptive triggers (Steam keeps rumble)")
     p.add_argument("--host", default="127.0.0.1", help="UDP bind address")
     p.add_argument("--port", type=int, default=None, help="UDP port")
     p.add_argument("--debug", action="store_true", help="Verbose per-packet logs")
-    p.add_argument("--headless", action="store_true", help="Disable TUI, use console logs")
+    p.add_argument("--headless", action="store_true", help="Disable UI, use console logs")
+    p.add_argument("--gui", action="store_true", help="Use the CustomTkinter GUI instead of the TUI")
+    p.add_argument("--tui", action="store_true", help="Force the Textual TUI (overrides UI env var)")
     args = p.parse_args()
 
     settings = Settings()
@@ -123,8 +119,19 @@ if __name__ == "__main__":
 
     sys.excepthook = _excepthook
 
-    if args.headless:
-        setup_logging(args.debug)
-        run(settings)
-    else:
-        run_tui(settings)
+    _log_zuv_status()
+
+    try:
+        if args.headless:
+            setup_logging(args.debug)
+            run(settings)
+        elif args.tui:
+            run_tui(settings)
+        elif args.gui:
+            run_gui(settings)
+        elif getattr(sys, "frozen", False):
+            run_gui(settings)
+        else:
+            run_gui(settings)
+    except KeyboardInterrupt:
+        print("\nInterrupted.", file=sys.stderr)

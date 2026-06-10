@@ -8,15 +8,19 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal
 from textual.widgets import Button, Header, Input, Static, Switch, TabbedContent, TabPane
 
-from modules import dualsense, loop, profiles, udplistener
-from modules.dualsense.triggers import off, vibration
-from modules.preferences import _version
+from lang import set_language, t
+from modules import loop, forzahorizon, make_backend
+from modules.config import preferences, profiles
+from modules.dualsense.adaptive_trigger import off, vibrate
+from modules.config.preferences import _version
 
 from .controls_tab import ControlsTab
+from .lang_tab import LangTab
 from .logs_tab import DEFAULT_LOG_LEVEL, LogsTab
 from .profiles_tab import ProfilesTab
 from .settings_tab import SettingsTab
-from .updates_tab import UpdatesTab
+from .system_tab import SystemTab
+from .widgets import RangeSlider
 
 log = logging.getLogger("fhds")
 
@@ -32,6 +36,9 @@ class _LogHandler(logging.Handler):
         self.app = app
 
     def emit(self, record):
+        # MARK: drop records during teardown - call_from_thread on a stopped app raises
+        if getattr(self.app, "_tearing_down", False):
+            return
         msg = self.format(record)
         if threading.get_ident() == self.app._thread_id:
             self.app.write_log(msg)
@@ -73,16 +80,19 @@ class TriggerTUI(App):
     ]
     HORIZONTAL_BREAKPOINTS = [(0, "-narrow"), (80, "-normal"), (120, "-wide")]
     SPONSOR_URL = "https://github.com/sponsors/HamzaYslmn"
-    CHANGELOG_URL = "https://github.com/TeaProphet/Forza-Horizon-DualSense-Python-FlydigiApexFork/releases/latest"
+    CHANGELOG_URL = "https://github.com/HamzaYslmn/Forza-Horizon-DualSense-Python/releases/latest"
 
     def __init__(self, settings):
         super().__init__()
         self.settings = settings
+        set_language(settings.language)
         self._stop = threading.Event()
         self._thread = None
         self._ds = None
         self._listener_cm = None
         self._listener = None
+        self._status_timer = None
+        self._tearing_down = False
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -91,21 +101,23 @@ class TriggerTUI(App):
             yield Static("", id="status")
             yield Static(f"v{_version() or '?'}", id="version")
         with TabbedContent(initial="tab-controls"):
-            with TabPane("Controls", id="tab-controls"):
+            with TabPane(t("Controls"), id="tab-controls"):
                 yield ControlsTab(self.settings)
-            with TabPane("Profiles", id="tab-profiles"):
+            with TabPane(t("Profiles"), id="tab-profiles"):
                 yield ProfilesTab(self.settings)
-            with TabPane("Settings", id="tab-settings"):
+            with TabPane(t("Settings"), id="tab-settings"):
                 yield SettingsTab(self.settings)
-            with TabPane("Updates", id="tab-updates"):
-                yield UpdatesTab(self.settings)
-            with TabPane("Logs", id="tab-logs"):
+            with TabPane(t("System"), id="tab-system"):
+                yield SystemTab(self.settings)
+            with TabPane(t("Language"), id="tab-lang"):
+                yield LangTab(self.settings)
+            with TabPane(t("Logs"), id="tab-logs"):
                 yield LogsTab()
         with Horizontal(id="bottombar"):
-            yield Button("q  Quit", id="bb-quit", classes="bb-btn")
+            yield Button(f"q  {t('Quit')}", id="bb-quit", classes="bb-btn")
             yield Static(id="bb-spacer")
-            yield Button("Changelog", id="bb-changelog", classes="bb-btn")
-            yield Button("♥ Sponsor", id="bb-sponsor", classes="bb-btn")
+            yield Button(t("Changelog"), id="bb-changelog", classes="bb-btn")
+            yield Button(t("♥ Sponsor"), id="bb-sponsor", classes="bb-btn")
 
     # --- lifecycle ----------------------------------------------------------
 
@@ -122,13 +134,18 @@ class TriggerTUI(App):
 
         self.refresh_status()
         self.refresh_profile()
-        self.set_interval(1.0, self.refresh_status)
+        # MARK: keep handle so on_unmount can stop the poller before backend teardown
+        self._status_timer = self.set_interval(1.0, self.refresh_status)
         log.info("Starting controller and telemetry listener...")
         self.call_after_refresh(self._start_backend)
 
     def on_unmount(self):
         # Detach our log handler before tearing down: backend shutdown emits
         # log records, and routing those into the unmounted widgets raises.
+        self._tearing_down = True
+        if self._status_timer is not None:
+            self._status_timer.stop()
+            self._status_timer = None
         root = logging.getLogger()
         for h in list(root.handlers):
             if isinstance(h, _LogHandler):
@@ -144,75 +161,93 @@ class TriggerTUI(App):
     def _start_backend(self):
         s = self.settings
         try:
-            self._ds = dualsense.DualSense(
-                startup_pulse_force=s.startup_pulse_force,
-                enable_startup_pulse=s.enable_startup_pulse,
-                reconnect_interval_s=s.reconnect_interval_s,
-                enable_reconnect=s.enable_reconnect,
-                settings=s,
-            )
+            # MARK: resync prefs - user may have switched profile before this deferred call ran
+            preferences.load(s)
+            self._ds = make_backend(s, s.enable_startup_pulse)
             self._ds.open()
-            self._listener_cm = udplistener.UDPListener(s.udp_host, s.udp_port, s.udp_timeout)
+            self._listener_cm = forzahorizon.UDPListener(s.udp_host, s.udp_port, s.udp_timeout)
             self._listener = self._listener_cm.__enter__()
             log.info("Listening on %s:%d", s.udp_host, s.udp_port)
             log.info("In game: HUD & Gameplay -> Data Out: ON, IP %s, Port %d", s.udp_host, s.udp_port)
+            if s.use_dsx:
+                log.info("DSX mode: sending triggers to %s:%d", s.dsx_host, s.dsx_port)
             self._thread = threading.Thread(target=self._run_loop, daemon=True)
             self._thread.start()
+        except OSError as exc:
+            # MARK: friendly UDP bind error - usually port in use
+            log.exception("UDP bind failed on %s:%d", s.udp_host, s.udp_port)
+            msg = t("UDP port {port} is in use. Close the other listener or change the port in the System tab.").format(port=s.udp_port)
+            self.query_one("#status", Static).update(msg)
         except Exception as exc:
-            import errno
-            is_addr_in_use = False
-            if isinstance(exc, OSError):
-                if hasattr(exc, "errno") and exc.errno == errno.EADDRINUSE:
-                    is_addr_in_use = True
-                elif sys.platform == "win32" and hasattr(exc, "winerror") and exc.winerror == 10048:
-                    is_addr_in_use = True
-
-            if is_addr_in_use:
-                log.error("Port %d is already in use. Is another instance of FH DualSense running?", s.udp_port)
-            else:
-                log.exception("Backend startup failed")
-
-            self.query_one("#status", Static).update(f"Backend failed: {exc}")
-            if self._ds:
-                try:
-                    self._ds.close()
-                except Exception:
-                    pass
-                self._ds = None
-            if self._listener_cm:
-                try:
-                    self._listener_cm.__exit__(None, None, None)
-                except Exception:
-                    pass
-                self._listener_cm = None
+            log.exception("Backend startup failed")
+            self.query_one("#status", Static).update(t("Backend failed: {error}").format(error=exc))
 
     def _run_loop(self):
         try:
             loop.run(self._ds, self._listener, self.settings, stop_event=self._stop)
+        except Exception:
+            # An unexpected error here would otherwise kill the backend thread
+            log.exception("Telemetry loop crashed")
         finally:
             if not self._stop.is_set():
                 self.call_from_thread(self.exit)
 
+    def _restart_backend(self):
+        """Swap the running backend without touching the UDP listener.
+        Called when use_dsx is toggled live so the change takes effect immediately."""
+        # MARK: stop old loop + backend, then reuse the listener
+        self._stop.set()
+        if self._thread:
+            self._thread.join(timeout=2.0)
+        if self._ds:
+            self._ds.close()
+        self._stop.clear()
+        s = self.settings
+        try:
+            # MARK: suppress pulse on hot-swap - avoid confusing the user mid-session
+            self._ds = make_backend(s, False)
+            self._ds.open()
+            if s.use_dsx:
+                log.info("DSX mode: sending triggers to %s:%d", s.dsx_host, s.dsx_port)
+            else:
+                log.info("HID mode: writing direct to DualSense")
+            self._thread = threading.Thread(target=self._run_loop, daemon=True)
+            self._thread.start()
+        except Exception as exc:
+            log.exception("Backend restart failed")
+            self.query_one("#status", Static).update(t("Backend failed: {error}").format(error=exc))
+
+
+    @staticmethod
+    def _open_url(url: str) -> None:
+        # webbrowser.open() can block while a browser cold-starts
+        threading.Thread(target=webbrowser.open, args=(url,), daemon=True).start()
+
     def on_click(self, event) -> None:
         widget = getattr(event, "widget", None)
         if widget is not None and widget.id == "version":
-            webbrowser.open(self.CHANGELOG_URL)
+            self._open_url(self.CHANGELOG_URL)
 
     # --- topbar / logs bridge -----------------------------------------------
 
     def refresh_status(self):
         connected = bool(self._ds and self._ds.connected)
-        state = "[bold green]connected[/]" if connected else "[bold red]waiting[/]"
+        if self.settings.use_dsx:
+            state = (f"[bold dodgerblue]{t('DSX: active')}[/]" if connected
+                     else f"[bold red]{t('DSX: off')}[/]")
+        else:
+            state = (f"[bold green]{t('connected')}[/]" if connected
+                     else f"[bold red]{t('waiting')}[/]")
         self.query_one("#status", Static).update(f"DualSense: {state}")
 
     def refresh_profile(self):
         """Update the active profile label. Cheap path is called only on profile
-        mutations / app mount - avoids hitting disk on the per-second timer."""
+        mutations / app mount — avoids hitting disk on the per-second timer."""
         try:
-            active = profiles.load_store().get("active") or "(none)"
+            active = profiles.load_profiles().get("active") or t("(none)")
         except Exception:
-            active = "(none)"
-        self.query_one("#profile", Static).update(f"Profile: {active}")
+            active = t("(none)")
+        self.query_one("#profile", Static).update(t("Profile: {name}").format(name=active))
 
     def _logs_tab(self) -> LogsTab | None:
         try:
@@ -229,14 +264,24 @@ class TriggerTUI(App):
 
     def refresh_setting_widgets(self) -> None:
         """Called by tabs after profile load / settings reset."""
-        for sw in self.query(Switch):
-            if sw.id and hasattr(self.settings, sw.id):
-                sw.value = getattr(self.settings, sw.id)
-        for inp in self.query(Input):
-            if inp.id and inp.id.startswith("set-"):
-                attr = inp.id[4:]
-                if hasattr(self.settings, attr):
-                    inp.value = str(getattr(self.settings, attr))
+        # MARK: guard programmatic Switch/Input writes so tab handlers skip save churn
+        self._refreshing = True
+        try:
+            for sw in self.query(Switch):
+                if sw.id and hasattr(self.settings, sw.id):
+                    sw.value = getattr(self.settings, sw.id)
+            for inp in self.query(Input):
+                if inp.id and inp.id.startswith("set-"):
+                    attr = inp.id[4:]
+                    if hasattr(self.settings, attr):
+                        inp.value = str(getattr(self.settings, attr))
+            for sld in self.query(RangeSlider):
+                if sld.id and sld.id.startswith("slider-"):
+                    attr = sld.id[len("slider-"):]
+                    if hasattr(self.settings, attr):
+                        sld.value = float(getattr(self.settings, attr))
+        finally:
+            self._refreshing = False
 
     def haptic(self, on: bool) -> None:
         if self._ds and self._ds.connected:
@@ -244,40 +289,20 @@ class TriggerTUI(App):
 
     def _do_haptic(self, on: bool) -> None:
         amp = HAPTIC_AMP_ON if on else HAPTIC_AMP_OFF
-        v = vibration(HAPTIC_FREQ_HZ, amp)
+        v = vibrate(HAPTIC_FREQ_HZ, amp)
         self._ds.set(v, v)
         time.sleep(HAPTIC_DURATION_S)
         self._ds.set(off(), off())
 
-    def test_rumble(self) -> None:
-        if self._ds and self._ds.connected:
-            threading.Thread(target=self._do_test_rumble, daemon=True).start()
-        else:
-            log.warning("Cannot test rumble: controller is not connected")
-
-    def _do_test_rumble(self) -> None:
-        log.info("Testing rumble: Heavy (Left) motor for 0.5s...")
-        self._ds._force_motors(200, 0, duration=0.5)
-        log.info("Testing rumble: Light (Right) motor for 0.5s...")
-        self._ds._force_motors(0, 200, duration=0.5)
-        log.info("Rumble test complete.")
-
-
     # --- bottombar / bindings -----------------------------------------------
 
     def action_sponsor(self):
-        try:
-            webbrowser.open(self.SPONSOR_URL)
-            log.info("Opened sponsor page: %s", self.SPONSOR_URL)
-        except Exception as exc:
-            log.warning("Could not open sponsor page: %s", exc)
+        self._open_url(self.SPONSOR_URL)
+        log.info("Opened sponsor page: %s", self.SPONSOR_URL)
 
     def action_changelog(self):
-        try:
-            webbrowser.open(self.CHANGELOG_URL)
-            log.info("Opened changelog: %s", self.CHANGELOG_URL)
-        except Exception as exc:
-            log.warning("Could not open changelog: %s", exc)
+        self._open_url(self.CHANGELOG_URL)
+        log.info("Opened changelog: %s", self.CHANGELOG_URL)
 
     def on_button_pressed(self, event: Button.Pressed):
         bid = event.button.id

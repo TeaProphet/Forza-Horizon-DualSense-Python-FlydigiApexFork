@@ -1,8 +1,30 @@
-"""FH DualSense building blocks - DualSense HID, UDP listener, settings."""
+"""FH DualSense building blocks — DualSense HID, UDP listener, settings."""
 import logging
 import os
 
-from . import dualsense, udplistener, loop, exit_detection
+from . import dsx, dualsense, forzahorizon, loop
+
+
+def make_backend(s, enable_startup_pulse):
+    """Build the trigger writer the settings ask for: DualSense (HID) or DSXClient
+    (UDP to DualSenseX). Both share the set/open/close/connected surface, so callers
+    treat them interchangeably. Callers pass the pulse flag explicitly (the UIs
+    suppress it on a restart)."""
+    if s.use_dsx:
+        return dsx.DSXClient(
+            host=s.dsx_host,
+            port=s.dsx_port,
+            startup_pulse_force=s.startup_pulse_force,
+            enable_startup_pulse=enable_startup_pulse,
+        )
+    return dualsense.DualSense(
+        startup_pulse_force=s.startup_pulse_force,
+        enable_startup_pulse=enable_startup_pulse,
+        reconnect_interval_s=s.reconnect_interval_s,
+        enable_reconnect=s.enable_reconnect,
+        controller_lock_serial=s.controller_lock_serial,
+    )
+
 
 # MARK: Console logging setup (--headless mode only, TUI wires its own handler)
 def setup_logging(debug: bool = False) -> None:

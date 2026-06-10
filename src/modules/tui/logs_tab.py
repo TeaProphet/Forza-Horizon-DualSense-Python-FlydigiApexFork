@@ -5,6 +5,8 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Label, Log, Static
 
+from lang import t
+
 log = logging.getLogger("fhds")
 
 LOG_LEVELS = ("WARNING", "INFO", "DEBUG")
@@ -44,11 +46,11 @@ class LogsTab(Vertical):
 
     def compose(self) -> ComposeResult:
         with Horizontal(classes="toolbar"):
-            yield Label("level", classes="caption")
+            yield Label(t("level"), classes="caption")
             yield Static(LOG_LEVELS[self._level_idx].lower(), id="log-level", classes="tb-action")
             yield Static("│", classes="sep")
-            yield Static("pause", id="log-pause", classes="tb-action")
-            yield Static("clear", id="log-clear", classes="tb-action")
+            yield Static(t("pause"), id="log-pause", classes="tb-action")
+            yield Static(t("clear"), id="log-clear", classes="tb-action")
             yield Static(classes="spacer")
         yield Log(id="logs", highlight=False, max_lines=2000, auto_scroll=True)
 
@@ -86,7 +88,7 @@ class LogsTab(Vertical):
     def _refresh_buttons(self) -> None:
         self.query_one("#log-level", Static).update(self.level_name.lower())
         pause = self.query_one("#log-pause", Static)
-        pause.update("resume" if self._paused else "pause")
+        pause.update(t("resume") if self._paused else t("pause"))
         pause.set_class(self._paused, "-active")
 
     def on_click(self, event):

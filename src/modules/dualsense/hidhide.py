@@ -1,6 +1,6 @@
 """HidHide detection (Windows only).
 
-We do NOT call HidHideCLI. We only check whether HidHide is installed so
+I do NOT call HidHideCLI. I only check whether HidHide is installed so
 the I/O loop can latch into persistent mode after the first successful
 connect (HidHide can cloak the device mid-session; persistent mode keeps
 the handle open and skips reconnect/watchdog churn).

@@ -5,7 +5,8 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Input, Label, ListItem, ListView, Static
 
-from modules import preferences, profiles
+from lang import t
+from modules.config import preferences, profiles
 
 log = logging.getLogger("fhds")
 
@@ -31,9 +32,18 @@ class ProfilesTab(Vertical):
     ProfilesTab .save-row { width: 1fr; height: auto; }
     ProfilesTab .save-row Input { width: 1fr; margin: 0 1 0 0; }
     ProfilesTab .save-row Button { width: 12; }
+    ProfilesTab #share-section { width: 1fr; height: auto; padding: 1 0 0 0; }
+    ProfilesTab #share-section Label { width: 1fr; height: auto; }
+    ProfilesTab .share-row { width: 1fr; height: auto; margin: 0 0 1 0; }
+    ProfilesTab .share-row Input { width: 1fr; margin: 0 1 0 0; }
+    ProfilesTab .share-row Button { width: 18; margin: 0 1 0 0; }
+    ProfilesTab .share-row Button:last-of-type { margin: 0; }
     ProfilesTab #profile-path {
         width: 1fr; height: auto; padding: 1 0 0 0;
         color: $text-muted; text-style: italic;
+    }
+    ProfilesTab #profile-note {
+        width: 1fr; height: auto; padding: 1 0 0 0; color: $warning;
     }
     App.-narrow ProfilesTab .toolbar { layout: vertical; }
     App.-narrow ProfilesTab .toolbar Button { width: 1fr; margin: 0 0 1 0; }
@@ -48,33 +58,47 @@ class ProfilesTab(Vertical):
 
     def compose(self) -> ComposeResult:
         with Horizontal(classes="header"):
-            yield Label("Profiles")
+            yield Label(t("Profiles"))
             yield Static(self._active_text(), id="profile-active")
         yield ListView(id="profile-list")
         with Horizontal(classes="toolbar"):
-            yield Button("Load", id="profile-load", variant="primary")
-            yield Button("Rename", id="profile-rename")
-            yield Button("Delete", id="profile-delete", variant="error")
+            yield Button(t("Load"), id="profile-load", variant="primary")
+            yield Button(t("Rename"), id="profile-rename")
+            yield Button(t("Delete"), id="profile-delete", variant="error")
         with Horizontal(classes="save-row"):
-            yield Input(placeholder="New profile name", id="profile-name")
-            yield Button("Save", id="profile-save", variant="success")
-        yield Static(f"File: {preferences.PATH}", id="profile-path")
+            yield Input(placeholder=t("New profile name"), id="profile-name")
+            yield Button(t("Save"), id="profile-save", variant="success")
+        yield Static(
+            t("Note: the [b]Default[/] profile is reset to built-in values every time "
+              "the app launches so new features and tuning come through. System "
+              "settings (System tab) are preserved. To keep your own tuning across "
+              "launches, save it as a named profile here."),
+            id="profile-note",
+            markup=True,
+        )
+        with Vertical(id="share-section"):
+            yield Label(t("Share profile"))
+            with Horizontal(classes="share-row"):
+                yield Input(placeholder="FHDS:...", id="share-code")
+                yield Button(t("Export & Copy"), id="share-export")
+                yield Button(t("Import"), id="share-import", variant="success")
+        yield Static(t("File: {path}").format(path=preferences.PATH), id="profile-path")
 
     def on_mount(self):
         self.refresh_list()
 
     def _active_text(self) -> str:
-        store = profiles.load_store()
-        active = store.get("active") or "(none)"
-        return f"Active: [b]{active}[/b]"
+        store = profiles.load_profiles()
+        active = store.get("active") or t("(none)")
+        return t("Active: {name}").format(name=f"[b]{active}[/b]")
 
     def refresh_list(self):
-        store = profiles.load_store()
+        store = profiles.load_profiles()
         lv = self.query_one("#profile-list", ListView)
         active = store.get("active", "")
         lv.clear()
-        for name in profiles.list_names(store):
-            label = f"{name}  [dim](active)[/]" if name == active else name
+        for name in profiles.list_profile_names(store):
+            label = f"{name}  [dim]({t('active')})[/]" if name == active else name
             lv.append(ListItem(Static(label, markup=True), name=name))
         self.query_one("#profile-active", Static).update(self._active_text())
         if hasattr(self.app, "refresh_profile"):
@@ -94,7 +118,7 @@ class ProfilesTab(Vertical):
         if not name:
             log.warning("Profile name is empty.")
             return
-        final = profiles.save_as(name, self.settings)
+        final = profiles.save_profile(name, self.settings)
         widget.value = ""
         self.refresh_list()
         if final and final != name:
@@ -115,7 +139,7 @@ class ProfilesTab(Vertical):
             if not name:
                 log.warning("No profile selected.")
                 return
-            if profiles.apply(name, self.settings):
+            if profiles.apply_profile(name, self.settings):
                 self.app.refresh_setting_widgets()
                 self.refresh_list()
                 log.info("Loaded profile: %s", name)
@@ -127,7 +151,7 @@ class ProfilesTab(Vertical):
             if name == preferences.DEFAULT_PROFILE_NAME:
                 log.warning("Default profile cannot be deleted.")
                 return
-            if profiles.delete(name):
+            if profiles.delete_profile(name):
                 self.refresh_list()
                 log.info("Deleted profile: %s", name)
         elif bid == "profile-rename":
@@ -142,7 +166,7 @@ class ProfilesTab(Vertical):
             if not new:
                 log.warning("Type the new name in the name field first.")
                 return
-            final = profiles.rename(old, new)
+            final = profiles.rename_profile(old, new)
             if not final:
                 log.warning("Rename failed.")
                 return
@@ -152,3 +176,48 @@ class ProfilesTab(Vertical):
                 log.info("Renamed profile: %s -> %s (name taken)", old, final)
             else:
                 log.info("Renamed profile: %s -> %s", old, final)
+        elif bid == "share-export":
+            self._export_selected()
+        elif bid == "share-import":
+            self._import_from_field()
+
+    # MARK: share -----------------------------------------------------------
+
+    def _share_input(self) -> Input:
+        return self.query_one("#share-code", Input)
+
+    def _notify(self, msg: str, severity: str = "information"):
+        self.app.notify(msg, title=t("Share profile"),
+                        severity=severity, timeout=4)
+
+    def _export_selected(self):
+        name = self._selected_name()
+        if not name:
+            self._notify(t("No profile selected."), "warning")
+            return
+        code = profiles.export_profile(name)
+        if not code:
+            self._notify(t("Export failed."), "error")
+            return
+        self._share_input().value = code
+        try:
+            self.app.copy_to_clipboard(code)
+            self._notify(t("Copied {name} to clipboard.").format(name=name))
+        except Exception:
+            self._notify(t("Copy failed. Select the code and copy manually."),
+                         "warning")
+        log.info("Exported profile %s (%d chars)", name, len(code))
+
+    def _import_from_field(self):
+        code = self._share_input().value.strip()
+        if not code:
+            self._notify(t("Paste a code first."), "warning")
+            return
+        final = profiles.import_profile(code)
+        if not final:
+            self._notify(t("Invalid share code."), "error")
+            return
+        self._share_input().value = ""
+        self.refresh_list()
+        self._notify(t("Imported as {name}.").format(name=final))
+        log.info("Imported profile as %s", final)

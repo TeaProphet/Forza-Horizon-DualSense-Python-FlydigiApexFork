@@ -2,8 +2,8 @@
 import logging
 import time
 
-from modules import dualsense, udplistener
-from modules.exit_detection import ProcessWatcher
+from modules import dualsense, forzahorizon
+from modules.forzahorizon import ProcessWatcher
 
 log = logging.getLogger("fhds")
 
@@ -13,36 +13,42 @@ def _max_abs(t, prefix):
 
 
 def run(ds, listener, s, stop_event=None):
-    OFF = dualsense.triggers.off()
-    controller = dualsense.Controller(s)
+    OFF = dualsense.adaptive_trigger.off()
+    controller = forzahorizon.Controller(s)
     prev = None
     last_pkt = time.monotonic()
     last_log = 0.0
     pkt_count = 0
 
-    watcher = ProcessWatcher(s.game_process_name_contains, s.game_poll_interval_s) if s.exit_on_game_close else None
+    watcher = ProcessWatcher(s.game_process_name_contains, s.game_poll_interval_s)
+    dsx_mode = getattr(ds, "is_dsx", False)
 
     while True:
         if stop_event is not None and stop_event.is_set():
             break
         now = time.monotonic()
-        if watcher and watcher.should_exit():
-            log.info("Game process closed - exiting.")
-            break
+        if s.exit_on_game_close:
+            # MARK: defensive - never let watcher errors kill the loop silently
+            try:
+                if watcher.should_exit():
+                    log.info("Game process closed — exiting.")
+                    break
+            except Exception as e:
+                log.warning("game-close watcher error: %s", e)
 
         pkt, addr = listener.recv_latest()
 
         if pkt is None:
             idle = now - last_pkt
             if idle > 5.0 and not getattr(listener, "lost", False):
-                log.warning("No UDP packets yet - check Forza Horizon Data Out IP/port and Windows Firewall")
+                log.warning("No UDP packets yet — check Forza Horizon Data Out IP/port and Windows Firewall")
                 listener.lost = True
             if idle > 1.0 and prev != (OFF, OFF):
                 ds.set(OFF, OFF); prev = (OFF, OFF)
             # Fallback exit: telemetry was flowing, then stopped for too long
             # (game killed via Task Manager, or psutil missed the process).
             if pkt_count > 0 and idle > s.telemetry_lost_exit_s:
-                log.info("Telemetry lost for %.0fs - exiting.", idle)
+                log.info("Telemetry lost for %.0fs — exiting.", idle)
                 break
             continue
 
@@ -50,23 +56,34 @@ def run(ds, listener, s, stop_event=None):
         last_pkt = now
         listener.lost = False
         if pkt_count == 1:
-            log.info("First packet from %s:%d (%d bytes)", addr[0], addr[1], len(pkt))
+            log.info("First packet from %s:%d (%d bytes)%s", addr[0], addr[1], len(pkt),
+                     " [DSX]" if dsx_mode else "")
 
         try:
-            t = udplistener.parse_packet(pkt)
+            t = forzahorizon.parse_packet(pkt)
         except ValueError as e:
             log.warning("Bad packet from %s:%d (%d bytes): %s", addr[0], addr[1], len(pkt), e)
             continue
 
-        left, right = controller.update(t, s)
+        # MARK: never let a controller logic bug kill the loop - log & skip frame
+        try:
+            left, right = controller.update(t, s)
+        except Exception as e:
+            log.warning("controller.update failed: %s", e)
+            continue
 
-        if s.enable_rumble:
-            # Motor values change continuously - always send when rumble is on.
-            ds.set(left, right, telemetry=t, settings=s)
-            prev = (left, right)
+        if s.enable_rumble and not dsx_mode:
+            try:
+                ds.set(left, right, telemetry=t, settings=s)
+                prev = (left, right)
+            except Exception as e:
+                log.debug("ds.set failed: %s", e)
         elif (left, right) != prev:
-            ds.set(left, right)
-            prev = (left, right)
+            try:
+                ds.set(left, right); prev = (left, right)
+            except Exception as e:
+                # MARK: HID write can fail on disconnect; reconnect logic will retry
+                log.debug("ds.set failed: %s", e)
 
         if now - last_log >= 1.0:
             last_log = now

@@ -26,17 +26,20 @@ uvx zuv build src -o app/fhds.zuv.py --update-repo HamzaYslmn/Forza-Horizon-Dual
 src/
   main.py                    # entry: IS_ZUV check, args, TUI/headless boot
   pyproject.toml             # version, deps, [tool.zuv] entry+volume
+  lang/                      # i18n: one module per language (en/tr/zh/ja), auto-discovered
   modules/
     settings.py              # @dataclass Settings - ALL tunables live here
     preferences.py           # JSON persistence (globals + active profile)
     profiles.py              # named profile CRUD
     loop.py                  # per-packet driver
-    udplistener/main.py      # UDP socket + 324-byte FH packet parser
+    forzahorizon/
+      udp_listener.py        # UDP socket + 324-byte FH packet parser
+      effects.py             # Forza-aware Controller + TriggerAnimations
     dualsense/
       main.py                # HID writer (USB+BT), persistent mode
-      triggers.py            # effect primitives + TriggerAnimation
+      adaptive_trigger.py  # generic effect primitives
       hidhide.py             # filesystem-only HidHide detection
-    tui/                     # Textual app (controls/settings/profiles/logs)
+    tui/                     # Textual app (controls/profiles/settings/system/lang/logs)
     emulation/               # optional fake telemetry for offline dev
     exit_detection/          # watches game proc, closes when it exits
 win_start.bat / linux_start.sh   # launchers (auto-download bundle + run uv)
@@ -64,7 +67,6 @@ Trigger command = `(mode, p1, p2)`:
 ```powershell
 cd src
 uv sync
-$env:FHDS_DEV = "1"      # suppress the "old standalone" startup prompt
 uv run main.py
 ```
 
@@ -94,16 +96,15 @@ Port `5300`.
 ## CI gating
 
 `.github/workflows/release.yml`:
-- Push to `dev` with `prerelease` in commit msg -> rolling `v999.0.0` prerelease.
+- Push to `dev` with `prerelease` in commit msg -> prerelease tagged at the next patch above the latest stable release (e.g. latest `v1.4.5` -> `v1.4.6`).
 - Push to `main` with `release vX.Y.Z` in commit msg -> stable `vX.Y.Z`.
 - Push tag `v*.*.*` -> stable release.
-- `workflow_dispatch` -> rolling prerelease.
+- `workflow_dispatch` -> prerelease at the next patch (same rule as above).
 
 ## Env vars
 
 - `IS_ZUV=true` - set automatically by the zuv loader when running the bundle.
-  `main.py` warns + blocks on `[y/N]` if missing (means user is on old standalone flow).
-- `FHDS_DEV=1` - suppresses that warning during dev.
+  Used by the System tab to locate the ZUV cache root for the update sentinel.
 
 ## Conventions
 
@@ -118,7 +119,7 @@ Port `5300`.
 
 ## HidHide
 
-We do NOT call `HidHideCLI.exe`. `hidhide.is_detected()` is a pure filesystem
+I do NOT call `HidHideCLI.exe`. `hidhide.is_detected()` is a pure filesystem
 probe. When detected, the I/O loop latches into **persistent mode** on the
 first successful connect: keeps the HID handle open, ignores read/write
 errors, skips the watchdog, ignores the `enable_reconnect` setting. This way
@@ -129,11 +130,12 @@ HidHide cloaking the device mid-session doesn't tear our handle down.
 | Want to... | Open this |
 |---|---|
 | Change a tunable / disable an effect | `src/modules/settings.py` |
-| Change how an effect feels | `src/modules/dualsense/triggers.py` |
+| Change how an effect feels | `src/modules/dualsense/adaptive_trigger.py` (primitive) or `src/modules/forzahorizon/effects.py` (game logic) |
 | Touch raw HID bytes | `src/modules/dualsense/main.py` |
-| Add a telemetry field | `src/modules/udplistener/main.py` |
+| Add a telemetry field | `src/modules/forzahorizon/udp_listener.py` |
 | Change CLI / startup wiring | `src/main.py` |
 | Change persistence layout | `src/modules/preferences.py` |
 | Edit the TUI | `src/modules/tui/` |
+| Add/translate a UI language | `src/lang/` (drop a `<code>.py` with `NAME` + `STRINGS`) |
 | Change launcher behavior | `win_start.bat` / `linux_start.sh` |
 | Change CI gating | `.github/workflows/release.yml` |
