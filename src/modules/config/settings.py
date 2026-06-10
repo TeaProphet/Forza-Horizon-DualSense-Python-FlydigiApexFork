@@ -92,7 +92,7 @@ class Settings:
 
     # MARK: System - reconnect
     # Off by default for HidHide compatibility. On = USB unplug/replug recovers without restart.
-    enable_reconnect: bool = False
+    enable_reconnect: bool = True
     reconnect_interval_s: float = 5.0         # retry cadence when disconnected
 
     # MARK: System - controller selection

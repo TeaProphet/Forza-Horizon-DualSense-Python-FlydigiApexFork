@@ -125,6 +125,10 @@ def _is_non_dualsense_controller(d: dict) -> bool:
     return False
 
 
+def _normalize_path(path) -> str:
+    if isinstance(path, bytes):
+        path = path.decode("utf-8", errors="ignore")
+    return path.lower().replace("/", "\\")
 
 
 def _enumerate_dualsenses():
@@ -516,6 +520,7 @@ class DualSense:
             known_controllers = {d.get("path") for d in hid.enumerate() if _is_non_dualsense_controller(d)}
         except Exception:
             known_controllers = set()
+        last_presence_check = 0.0
 
         while self._running:
             now = time.monotonic()
@@ -562,22 +567,30 @@ class DualSense:
             # watchdog and swallow transient read/write errors.
             persistent = self.persistent
 
+            # --- Verify physical presence periodically ---
+            if now - last_presence_check > 1.0:
+                last_presence_check = now
+                still_present = False
+                try:
+                    target_path = _normalize_path(self.dev_path)
+                    still_present = any(_normalize_path(d.get("path")) == target_path for d in hid.enumerate(VENDOR_ID, 0))
+                except Exception:
+                    pass
+                if not still_present:
+                    if not persistent:
+                        self._disconnect("controller physically unplugged")
+                        continue
+
             # --- Connected: drain one input report for the liveness watchdog.
             # timeout_ms=0 forces a truly nonblocking read — set_nonblocking()
             # is unreliable on Windows Bluetooth, where read() would otherwise
             # block until the BT stack times out (~30 s after a drop).
             try:
-                data = self.dev.read(self.lay["size"], timeout_ms=0)
-            except OSError as e:
-                if not persistent:
-                    self._disconnect(f"read failed: {e}")
-                    continue
-                data = None
-            if data:
-                self._last_input_at = now
-            elif not persistent and now - self._last_input_at >= self._input_idle_timeout:
-                self._disconnect(f"no input for {self._input_idle_timeout:.0f}s")
-                continue
+                self.dev.read(self.lay["size"], timeout_ms=0)
+            except OSError:
+                # Ignore read errors as some controllers/configurations do not support reading
+                # or raise constant error when exclusive access is active.
+                pass
 
             # --- Write the latest queued frame, if any ---
             with self._lock:
