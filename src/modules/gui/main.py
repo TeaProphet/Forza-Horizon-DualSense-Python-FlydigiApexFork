@@ -517,7 +517,7 @@ class TriggerGUI:
                 color, label = T.BLUE, t("DSX: active")
             else:
                 color, label = T.RED, t("DSX: off")
-        elif ds and getattr(ds, "persistent", False):
+        elif ds and ds.connected and getattr(ds, "persistent", False):
             color, label = T.GREEN, f"{t('connected')} - {t('latched')}"
         elif ds and ds.connected:
             color, label = T.GREEN, t("connected")
