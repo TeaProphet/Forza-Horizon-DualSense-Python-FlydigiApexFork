@@ -52,6 +52,7 @@ Flydigi Space Station требует запуска поддерживаемой
 > 1. Удалить текущую установленную версию Flydigi Space Station 4.
 > 2. Скачать и установить версию **4.1.2.17** (последняя версия с поддержкой вибрации): [Скачать Flydigi Space Station 4.1.2.17](https://tencent-android.cdn.flydigi.com/PC/SpaceStation4.0/Flydigi%20Space%20Station_setup_4.1.2.17.exe).
 > Проверить работу адаптивных триггеров и вибрации можно на сайте [ds.daidr.me](https://ds.daidr.me).
+> *(Огромная благодарность **ZAMHome** за обнаружение этого ограничения версий Space Station и подсказку с откатом на версию 4.1.2.17!)*
 
 ### Как запустить
 1. Перейдите на [страницу релизов](https://github.com/TeaProphet/Forza-Horizon-DualSense-Python-FlydigiApexFork/releases/latest) и скачайте файл `win_start.bat` (для Windows) или `linux_start.sh` (для Linux).

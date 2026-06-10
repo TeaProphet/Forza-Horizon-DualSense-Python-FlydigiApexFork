@@ -52,6 +52,7 @@ In Forza Horizon, open **Settings -> HUD and Gameplay** and scroll to the bottom
 > 1. Uninstall your current Flydigi Space Station 4 version.
 > 2. Download and install version **4.1.2.17** (the last version that supports rumble): [Download Flydigi Space Station 4.1.2.17](https://tencent-android.cdn.flydigi.com/PC/SpaceStation4.0/Flydigi%20Space%20Station_setup_4.1.2.17.exe).
 > You can verify your controller's rumble and adaptive triggers on [ds.daidr.me](https://ds.daidr.me).
+> *(Huge thanks to **ZAMHome** for discovering this Space Station version limitation and suggesting the rollback to 4.1.2.17!)*
 
 ### How to Run
 1. Go to the [Releases Page](https://github.com/TeaProphet/Forza-Horizon-DualSense-Python-FlydigiApexFork/releases/latest) and download `win_start.bat` (Windows) or `linux_start.sh` (Linux).
