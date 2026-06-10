@@ -45,6 +45,15 @@ Flydigi Space Station требует запуска поддерживаемой
 - Перед запуском утилиты необходимо запустить **Flydigi Space Station 3/4**.
 - Внутри Flydigi Space Station перейдите в раздел **Adaptive Trigger (Адаптивные триггеры)** -> выберите профиль **Marvel's Spider-Man: Miles Morales** -> измените режим триггера на **DS Mode (Режим DualSense)** -> установите режим **Adaptive (Адаптивный)** в положение **ON (ВКЛ)**.
 
+> [!IMPORTANT]
+> **Требования к версии Flydigi Space Station для работы вибрации на Apex 5**:
+> В эмуляции DS5 для Flydigi Space Station 3 вибрация на основных моторах поддерживается. Однако во Flydigi Space Station 4 поддержка этой вибрации была удалена, начиная с версии `4.1.3.17`.
+> Чтобы включить вибрацию на основных моторах для **Flydigi Apex 5**, вам необходимо:
+> 1. Удалить текущую установленную версию Flydigi Space Station 4.
+> 2. Скачать и установить версию **4.1.2.17** (последняя версия с поддержкой вибрации): [Скачать Flydigi Space Station 4.1.2.17](https://tencent-android.cdn.flydigi.com/PC/SpaceStation4.0/Flydigi%20Space%20Station_setup_4.1.2.17.exe).
+> 3. Отключить параметр `Split HID reports` (установите в положение **OFF**) во вкладке настроек TUI.
+> Проверить работу адаптивных триггеров и вибрации можно на сайте [ds.daidr.me](https://ds.daidr.me).
+
 ### Как запустить
 1. Перейдите на [страницу релизов](https://github.com/TeaProphet/Forza-Horizon-DualSense-Python-FlydigiApexFork/releases/latest) и скачайте файл `win_start.bat` (для Windows) или `linux_start.sh` (для Linux).
 2. Запустите скачанный скрипт: дважды кликните по `win_start.bat` в Windows или выполните `bash linux_start.sh` в Linux.

@@ -45,6 +45,15 @@ In Forza Horizon, open **Settings -> HUD and Gameplay** and scroll to the bottom
 - **Flydigi Space Station 3/4** must be started before launching the utility.
 - Inside Flydigi Space Station, navigate to **Adaptive Trigger** -> select **Marvel's Spider-Man: Miles Morales** -> change the trigger mode to **DS Mode (DualSense Mode)** -> set **Adaptive** to **ON**.
 
+> [!IMPORTANT]
+> **Flydigi Space Station Version Requirement for Apex 5 Rumble**:
+> In Flydigi Space Station 3, rumble/vibration on the main motors in DS5 emulation is fully supported. However, in Flydigi Space Station 4, this vibration support was removed starting with version `4.1.3.17`.
+> To get the rumble working on the **Flydigi Apex 5**, you must:
+> 1. Uninstall your current Flydigi Space Station 4 version.
+> 2. Download and install version **4.1.2.17** (the last version that supports rumble): [Download Flydigi Space Station 4.1.2.17](https://tencent-android.cdn.flydigi.com/PC/SpaceStation4.0/Flydigi%20Space%20Station_setup_4.1.2.17.exe).
+> 3. Turn **OFF** the `Split HID reports` setting in the TUI Settings tab.
+> You can verify your controller's rumble and adaptive triggers on [ds.daidr.me](https://ds.daidr.me).
+
 ### How to Run
 1. Go to the [Releases Page](https://github.com/TeaProphet/Forza-Horizon-DualSense-Python-FlydigiApexFork/releases/latest) and download `win_start.bat` (Windows) or `linux_start.sh` (Linux).
 2. Run the script: double-click `win_start.bat` on Windows, or run `bash linux_start.sh` on Linux.
