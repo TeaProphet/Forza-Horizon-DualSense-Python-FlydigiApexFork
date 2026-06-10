@@ -76,7 +76,7 @@ If the controller connects but rumble/vibration is not working (either in the ga
 - Try toggling the **`Split HID reports`** switch in the Settings tab of the TUI (some controllers or firmware versions require this setting to be turned **OFF** to receive rumble updates).
 
 If you see 2 gamepads connected in Steam when running this mod, it can cause input or rumble conflicts:
-- Use **HidHide** to hide the DualSense controller from the system, leaving only the emulated **Flydigi** visible.
+- Use **HidHide** to hide the DualSense controller from the system, leaving only the **Flydigi** visible.
 
 ---
 
