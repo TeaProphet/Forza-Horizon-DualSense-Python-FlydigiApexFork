@@ -48,16 +48,6 @@ if os.name == "nt":
             ("PeakJobMemoryUsed", ctypes.c_size_t)
         ]
 
-def _has_gamepad() -> bool:
-    try:
-        devices = hid.enumerate(0x054C, 0)
-        for d in devices:
-            if d.get("product_id") in (0x0CE6, 0x0DF2):
-                return True
-    except Exception:
-        pass
-    return False
-
 def start_trigger(settings) -> None:
     global _trigger_proc, _job_handle
     if _trigger_proc is not None:
@@ -65,10 +55,6 @@ def start_trigger(settings) -> None:
     if not settings.enable_emulation_trigger:
         return
     if os.name != "nt":
-        return
-
-    # If the DualSense controller is already detected, do not trigger or wait
-    if _has_gamepad():
         return
 
     try:
