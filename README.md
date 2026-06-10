@@ -75,6 +75,9 @@ If you prefer to run the raw Python files directly:
 If the controller connects but rumble/vibration is not working (either in the game or when clicking "Test Rumble" in the Settings tab):
 - Try toggling the **`Split HID reports`** switch in the Settings tab of the TUI (some controllers or firmware versions require this setting to be turned **OFF** to receive rumble updates).
 
+If you see 2 gamepads connected in Steam when running this mod, it can cause input or rumble conflicts:
+- Use **HidHide** to hide the original Flydigi controller from the system, leaving only the emulated **Sony DualSense** visible.
+
 ---
 
 ## 📄 License
