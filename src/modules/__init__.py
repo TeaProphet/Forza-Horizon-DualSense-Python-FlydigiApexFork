@@ -23,6 +23,7 @@ def make_backend(s, enable_startup_pulse):
         reconnect_interval_s=s.reconnect_interval_s,
         enable_reconnect=s.enable_reconnect,
         controller_lock_serial=s.controller_lock_serial,
+        settings=s,
     )
 
 

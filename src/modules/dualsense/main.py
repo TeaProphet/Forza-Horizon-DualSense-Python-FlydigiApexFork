@@ -482,10 +482,10 @@ class DualSense:
         # self._safe_write(self._build_power_saver()) # Commented out due to report discussions/27
         return True
 
-    def _disconnect(self, reason: str = ""):
+    def _disconnect(self, reason: str = "", force: bool = False):
         # Latched: keep the handle, ignore transient errors. HidHide cloaks
         # input but the OS link stays valid.
-        if self.persistent and self._running:
+        if self.persistent and self._running and not force:
             return
         was_connected = self.dev is not None
         if was_connected:
@@ -578,7 +578,7 @@ class DualSense:
                     pass
                 if not still_present:
                     if not persistent:
-                        self._disconnect("controller physically unplugged")
+                        self._disconnect("controller physically unplugged", force=True)
                         continue
 
             # --- Connected: drain one input report for the liveness watchdog.
@@ -605,12 +605,10 @@ class DualSense:
                     else:
                         n = self.dev.write(self._build(left, right, ml, mr, mode="all"))
                 except Exception as e:
-                    if not persistent:
-                        self._disconnect(f"write failed: {e}")
-                        continue
-                    n = None
-                if not persistent and n is not None and n <= 0:
-                    self._disconnect(f"write returned {n}")
+                    self._disconnect(f"write failed: {e}", force=True)
+                    continue
+                if n is not None and n <= 0:
+                    self._disconnect(f"write returned {n}", force=True)
                     continue
 
             # Sleep until set() queues a new frame, or wake to recheck watchdogs.
